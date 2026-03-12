@@ -1,0 +1,14 @@
+.pytest_cache/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.idea/
+.vscode/
+dist/
+build/
+src/*.egg-info/
+*.egg-info/
+.env
+.config/
+browser-state/

@@ -15,6 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
+notion-push = "notion_native_toolkit.cli:main"
 notion-native = "notion_native_toolkit.cli:main"
 
 [tool.setuptools]

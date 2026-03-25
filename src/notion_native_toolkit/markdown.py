@@ -23,6 +23,167 @@ from mistletoe.span_token import Emphasis, InlineCode, LineBreak, Link, RawText,
 
 BLOCKS_NEEDING_SPACING = {"heading_1", "heading_2", "callout", "code"}
 
+NOTION_MAX_TEXT_LENGTH = 2000
+
+# Language-specific comment prefixes for code block chunking (FR-02)
+_COMMENT_PREFIX: dict[str, str] = {
+    "python": "#",
+    "ruby": "#",
+    "bash": "#",
+    "shell": "#",
+    "r": "#",
+    "perl": "#",
+    "yaml": "#",
+    "toml": "#",
+    "dockerfile": "#",
+    "makefile": "#",
+    "javascript": "//",
+    "typescript": "//",
+    "java": "//",
+    "go": "//",
+    "rust": "//",
+    "c": "//",
+    "cpp": "//",
+    "csharp": "//",
+    "kotlin": "//",
+    "swift": "//",
+    "dart": "//",
+    "scala": "//",
+    "php": "//",
+    "sql": "--",
+    "lua": "--",
+    "haskell": "--",
+    "html": "<!--",
+    "xml": "<!--",
+    "css": "/*",
+}
+
+_COMMENT_SUFFIX: dict[str, str] = {
+    "html": "-->",
+    "xml": "-->",
+    "css": "*/",
+}
+
+# GitHub-style admonition mapping (FR-07)
+_ADMONITION_MAP: dict[str, tuple[str, str]] = {
+    "NOTE": ("\U0001f4dd", "info"),
+    "TIP": ("\U0001f4a1", "info"),
+    "WARNING": ("\u26a0\ufe0f", "warning"),
+    "CAUTION": ("\u274c", "danger"),
+    "IMPORTANT": ("\u2757", "important"),
+}
+
+# Extended emoji callout mapping (FR-07)
+_EMOJI_CALLOUT_MAP: dict[str, str] = {
+    "\U0001f4a1": "default",
+    "\u26a0": "warning",
+    "\u26a0\ufe0f": "warning",
+    "\u2757": "warning",
+    "\u274c": "warning",
+    "\U0001f4cc": "default",
+    "\u2705": "default",
+    "\U0001f3af": "default",
+    "\U0001f525": "warning",
+    "\u2139\ufe0f": "default",
+    "\U0001f6a8": "warning",
+    "\U0001f4e2": "default",
+}
+
+
+def _chunk_code_block(
+    code_content: str, language: str, max_length: int = NOTION_MAX_TEXT_LENGTH
+) -> list[dict[str, Any]]:
+    """Split a code block that exceeds max_length into multiple blocks with part labels."""
+    if len(code_content) <= max_length:
+        return [
+            {
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": code_content}}
+                    ],
+                    "language": language,
+                },
+            }
+        ]
+
+    prefix = _COMMENT_PREFIX.get(language, "#")
+    suffix = _COMMENT_SUFFIX.get(language, "")
+
+    lines = code_content.split("\n")
+    chunks: list[str] = []
+    current_chunk: list[str] = []
+    current_length = 0
+
+    for line in lines:
+        line_length = len(line) + 1  # +1 for newline
+        if current_length + line_length > max_length - 80 and current_chunk:
+            chunks.append("\n".join(current_chunk))
+            current_chunk = []
+            current_length = 0
+        current_chunk.append(line)
+        current_length += line_length
+
+    if current_chunk:
+        chunks.append("\n".join(current_chunk))
+
+    total = len(chunks)
+    blocks: list[dict[str, Any]] = []
+    for i, chunk in enumerate(chunks, 1):
+        label_text = f"Part {i} of {total}"
+        if suffix:
+            label = f"{prefix} {label_text} {suffix}"
+        else:
+            label = f"{prefix} {label_text}"
+        labeled_content = f"{label}\n{chunk}"
+        blocks.append(
+            {
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": labeled_content[:NOTION_MAX_TEXT_LENGTH]}}
+                    ],
+                    "language": language,
+                },
+            }
+        )
+    return blocks
+
+
+def _sanitize_mermaid(content: str) -> str:
+    """Sanitize mermaid diagram content for Notion compatibility."""
+    content = re.sub(r'click\s+\w+\s+"[^"]*"', "", content)
+    content = re.sub(r"%%\{init:.*?\}%%", "", content)
+    content = re.sub(r"\n{3,}", "\n\n", content)
+    return content.strip()
+
+
+def _make_image_block(url: str, alt_text: str = "") -> dict[str, Any]:
+    """Create a Notion image block from a URL (FR-01 P1)."""
+    return {
+        "object": "block",
+        "type": "image",
+        "image": {
+            "type": "external",
+            "external": {"url": url},
+            "caption": [{"type": "text", "text": {"content": alt_text}}] if alt_text else [],
+        },
+    }
+
+
+def _parse_admonition(quote_text: str) -> tuple[bool, str | None, str, str | None]:
+    """Detect GitHub-style admonitions like [!NOTE], [!WARNING] etc. (FR-07)."""
+    match = re.match(r"^\[!(\w+)\]\s*(.*)", quote_text, re.DOTALL)
+    if match:
+        admonition_type = match.group(1).upper()
+        remaining = match.group(2).strip()
+        if admonition_type in _ADMONITION_MAP:
+            emoji, kind = _ADMONITION_MAP[admonition_type]
+            return True, emoji, remaining, kind
+    return False, None, quote_text, None
+
 
 def extract_page_id(input_str: str) -> str:
     cleaned = input_str.strip()
@@ -135,26 +296,32 @@ def convert_inline_text(
         text = extract_text_content(token)
         if text:
             link_url = token.target
-            if (
-                source_file_path
-                and mapping
-                and project_root
-                and pending_links is not None
-            ):
-                link_url = convert_link_to_notion_url(
-                    token.target,
-                    text,
-                    source_file_path,
-                    mapping,
-                    project_root,
-                    pending_links,
+            # Anchor-only links (#...) are not supported by Notion - keep text only
+            if link_url.startswith("#"):
+                rich_text.append(
+                    {"type": "text", "text": {"content": text[:2000]}}
                 )
-            rich_text.append(
-                {
-                    "type": "text",
-                    "text": {"content": text[:2000], "link": {"url": link_url}},
-                }
-            )
+            else:
+                if (
+                    source_file_path
+                    and mapping
+                    and project_root
+                    and pending_links is not None
+                ):
+                    link_url = convert_link_to_notion_url(
+                        token.target,
+                        text,
+                        source_file_path,
+                        mapping,
+                        project_root,
+                        pending_links,
+                    )
+                rich_text.append(
+                    {
+                        "type": "text",
+                        "text": {"content": text[:2000], "link": {"url": link_url}},
+                    }
+                )
     elif isinstance(token, LineBreak):
         rich_text.append({"type": "text", "text": {"content": "\n"}})
     elif hasattr(token, "children"):
@@ -168,7 +335,22 @@ def convert_inline_text(
 
 
 def is_callout(quote_text: str) -> tuple[bool, str | None, str, str | None]:
-    callout_map = {
+    if not quote_text:
+        return False, None, quote_text, None
+
+    # 1. GitHub-style admonition: [!NOTE], [!WARNING], etc.
+    is_admonition, emoji, text, kind = _parse_admonition(quote_text)
+    if is_admonition:
+        return True, emoji, text, kind
+
+    # 2. Extended emoji detection (multi-byte emoji first)
+    for emoji_key in sorted(_EMOJI_CALLOUT_MAP, key=len, reverse=True):
+        if quote_text.startswith(emoji_key):
+            remaining = quote_text[len(emoji_key):].lstrip()
+            return True, emoji_key, remaining, _EMOJI_CALLOUT_MAP[emoji_key]
+
+    # 3. Single-char symbol callouts
+    symbol_map = {
         "!": "default",
         "?": "default",
         ">": "default",
@@ -183,20 +365,91 @@ def is_callout(quote_text: str) -> tuple[bool, str | None, str, str | None]:
         "$": "default",
         "%": "default",
         "&": "default",
-        "💡": "default",
-        "⚠": "warning",
-        "❗": "warning",
-        "📌": "default",
-        "✅": "default",
-        "❌": "warning",
-        "🎯": "default",
-        "🔥": "warning",
     }
-    if quote_text:
-        first_char = quote_text[0]
-        if first_char in callout_map:
-            return True, first_char, quote_text[1:].lstrip(), callout_map[first_char]
+    first_char = quote_text[0]
+    if first_char in symbol_map:
+        return True, first_char, quote_text[1:].lstrip(), symbol_map[first_char]
+
     return False, None, quote_text, None
+
+
+def _convert_list_items(
+    list_token: Any,
+    source_file_path: str | None = None,
+    mapping: dict[str, Any] | None = None,
+    project_root: Path | None = None,
+    pending_links: list[dict[str, str]] | None = None,
+) -> list[dict[str, Any]]:
+    """Convert a List token to Notion blocks, with recursive nested list support (FR-01 P2)."""
+    result_blocks: list[dict[str, Any]] = []
+    for item in list_token.children:
+        if not isinstance(item, ListItem):
+            continue
+        rich_text: list[dict[str, Any]] = []
+        is_checkbox = False
+        is_checked = False
+        child_blocks: list[dict[str, Any]] = []
+
+        for child in item.children:
+            if isinstance(child, Paragraph):
+                text_content = extract_text_content(child)
+                checkbox_match = re.match(r"^\[([ xX])]\s*(.*)", text_content)
+                if checkbox_match:
+                    is_checkbox = True
+                    is_checked = checkbox_match.group(1).lower() == "x"
+                    remaining_text = checkbox_match.group(2)
+                    rich_text = [
+                        {
+                            "type": "text",
+                            "text": {"content": remaining_text[:NOTION_MAX_TEXT_LENGTH]},
+                        }
+                    ]
+                else:
+                    for inline_child in child.children:
+                        rich_text.extend(
+                            convert_inline_text(
+                                inline_child,
+                                source_file_path,
+                                mapping,
+                                project_root,
+                                pending_links,
+                            )
+                        )
+            elif isinstance(child, List):
+                # Recursively convert nested lists to children
+                child_blocks.extend(
+                    _convert_list_items(
+                        child, source_file_path, mapping, project_root, pending_links
+                    )
+                )
+
+        if not rich_text:
+            continue
+
+        if is_checkbox:
+            block: dict[str, Any] = {
+                "object": "block",
+                "type": "to_do",
+                "to_do": {"rich_text": rich_text, "checked": is_checked},
+            }
+            if child_blocks:
+                block["to_do"]["children"] = child_blocks
+        else:
+            list_type = (
+                "bulleted_list_item"
+                if not list_token.start
+                else "numbered_list_item"
+            )
+            block = {
+                "object": "block",
+                "type": list_type,
+                list_type: {"rich_text": rich_text},
+            }
+            if child_blocks:
+                block[list_type]["children"] = child_blocks
+
+        result_blocks.append(block)
+    return result_blocks
 
 
 def markdown_to_notion_blocks(
@@ -240,22 +493,44 @@ def markdown_to_notion_blocks(
                 extract_text_content(child) for child in token.children
             )
             mapped_language = language_map.get(language.lower(), language.lower())
-            block = {
-                "object": "block",
-                "type": "code",
-                "code": {
-                    "rich_text": [
-                        {"type": "text", "text": {"content": code_content[:2000]}}
-                    ],
-                    "language": mapped_language,
-                },
-            }
+            # FR-02: Mermaid sanitization (never split)
+            if mapped_language == "mermaid":
+                code_content = _sanitize_mermaid(code_content)
+                block = {
+                    "object": "block",
+                    "type": "code",
+                    "code": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": code_content[:NOTION_MAX_TEXT_LENGTH]}}
+                        ],
+                        "language": mapped_language,
+                    },
+                }
+            elif len(code_content) > NOTION_MAX_TEXT_LENGTH:
+                # FR-02: Split oversized code blocks with part labels
+                code_blocks = _chunk_code_block(code_content, mapped_language)
+                blocks.extend(code_blocks)
+                continue
+            else:
+                block = {
+                    "object": "block",
+                    "type": "code",
+                    "code": {
+                        "rich_text": [
+                            {"type": "text", "text": {"content": code_content}}
+                        ],
+                        "language": mapped_language,
+                    },
+                }
         elif isinstance(token, Quote):
-            rich_text: list[dict[str, Any]] = []
+            # Collect first paragraph as main text, rest as children
+            first_paragraph_text: list[dict[str, Any]] = []
+            child_blocks: list[dict[str, Any]] = []
+            first_para_done = False
             for child in token.children:
-                if isinstance(child, Paragraph):
+                if isinstance(child, Paragraph) and not first_para_done:
                     for inline_child in child.children:
-                        rich_text.extend(
+                        first_paragraph_text.extend(
                             convert_inline_text(
                                 inline_child,
                                 source_file_path,
@@ -264,82 +539,68 @@ def markdown_to_notion_blocks(
                                 pending_links,
                             )
                         )
+                    first_para_done = True
+                elif isinstance(child, Paragraph):
+                    p_rich: list[dict[str, Any]] = []
+                    for inline_child in child.children:
+                        p_rich.extend(
+                            convert_inline_text(
+                                inline_child,
+                                source_file_path,
+                                mapping,
+                                project_root,
+                                pending_links,
+                            )
+                        )
+                    if p_rich:
+                        child_blocks.append(
+                            {"object": "block", "type": "paragraph", "paragraph": {"rich_text": p_rich}}
+                        )
+                elif isinstance(child, List):
+                    for item in child.children:
+                        if not isinstance(item, ListItem):
+                            continue
+                        li_rich: list[dict[str, Any]] = []
+                        for li_child in item.children:
+                            if isinstance(li_child, Paragraph):
+                                for ic in li_child.children:
+                                    li_rich.extend(
+                                        convert_inline_text(ic, source_file_path, mapping, project_root, pending_links)
+                                    )
+                        if li_rich:
+                            list_type = "bulleted_list_item" if not child.start else "numbered_list_item"
+                            child_blocks.append(
+                                {"object": "block", "type": list_type, list_type: {"rich_text": li_rich}}
+                            )
             full_text = "".join(
-                item.get("text", {}).get("content", "") for item in rich_text
+                item.get("text", {}).get("content", "") for item in first_paragraph_text
             )
             callout, emoji, without_emoji, _kind = is_callout(full_text)
             if callout:
-                block = {
+                callout_block: dict[str, Any] = {
                     "object": "block",
                     "type": "callout",
                     "callout": {
                         "rich_text": [
-                            {"type": "text", "text": {"content": without_emoji[:2000]}}
+                            {"type": "text", "text": {"content": without_emoji[:NOTION_MAX_TEXT_LENGTH]}}
                         ],
-                        "icon": {"type": "emoji", "emoji": emoji or "💡"},
+                        "icon": {"type": "emoji", "emoji": emoji or "\U0001f4a1"},
                     },
                 }
-            elif rich_text:
+                if child_blocks:
+                    callout_block["callout"]["children"] = child_blocks
+                block = callout_block
+            elif first_paragraph_text:
                 block = {
                     "object": "block",
                     "type": "quote",
-                    "quote": {"rich_text": rich_text},
+                    "quote": {"rich_text": first_paragraph_text},
                 }
         elif isinstance(token, List):
-            for item in token.children:
-                if not isinstance(item, ListItem):
-                    continue
-                rich_text: list[dict[str, Any]] = []
-                is_checkbox = False
-                is_checked = False
-                for child in item.children:
-                    if isinstance(child, Paragraph):
-                        text_content = extract_text_content(child)
-                        checkbox_match = re.match(r"^\[([ xX])]\s*(.*)", text_content)
-                        if checkbox_match:
-                            is_checkbox = True
-                            is_checked = checkbox_match.group(1).lower() == "x"
-                            remaining_text = checkbox_match.group(2)
-                            rich_text = [
-                                {
-                                    "type": "text",
-                                    "text": {"content": remaining_text[:2000]},
-                                }
-                            ]
-                        else:
-                            for inline_child in child.children:
-                                rich_text.extend(
-                                    convert_inline_text(
-                                        inline_child,
-                                        source_file_path,
-                                        mapping,
-                                        project_root,
-                                        pending_links,
-                                    )
-                                )
-                if not rich_text:
-                    continue
-                if is_checkbox:
-                    blocks.append(
-                        {
-                            "object": "block",
-                            "type": "to_do",
-                            "to_do": {"rich_text": rich_text, "checked": is_checked},
-                        }
-                    )
-                else:
-                    list_type = (
-                        "bulleted_list_item"
-                        if not token.start
-                        else "numbered_list_item"
-                    )
-                    blocks.append(
-                        {
-                            "object": "block",
-                            "type": list_type,
-                            list_type: {"rich_text": rich_text},
-                        }
-                    )
+            list_blocks = _convert_list_items(
+                token, source_file_path, mapping, project_root, pending_links
+            )
+            blocks.extend(list_blocks)
             continue
         elif isinstance(token, Table):
 
@@ -410,19 +671,33 @@ def markdown_to_notion_blocks(
         elif isinstance(token, ThematicBreak):
             block = {"object": "block", "type": "divider", "divider": {}}
         elif isinstance(token, Paragraph):
-            rich_text: list[dict[str, Any]] = []
-            for child in token.children:
-                rich_text.extend(
-                    convert_inline_text(
-                        child, source_file_path, mapping, project_root, pending_links
+            # FR-01 P1: Detect image-only paragraphs: ![alt](url)
+            if (
+                len(token.children) == 1
+                and hasattr(token.children[0], "src")
+                and hasattr(token.children[0], "title")
+            ):
+                img_token = token.children[0]
+                img_url = getattr(img_token, "src", "")
+                img_alt = extract_text_content(img_token) if hasattr(img_token, "children") else ""
+                if img_url:
+                    block = _make_image_block(img_url, img_alt)
+                else:
+                    continue
+            else:
+                rich_text: list[dict[str, Any]] = []
+                for child in token.children:
+                    rich_text.extend(
+                        convert_inline_text(
+                            child, source_file_path, mapping, project_root, pending_links
+                        )
                     )
-                )
-            if rich_text:
-                block = {
-                    "object": "block",
-                    "type": "paragraph",
-                    "paragraph": {"rich_text": rich_text},
-                }
+                if rich_text:
+                    block = {
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {"rich_text": rich_text},
+                    }
         if block is not None:
             blocks.append(block)
             block_type = block.get("type")

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from .credentials import CredentialRef, store_keychain_secret
+from .deploy import deploy
 from .markdown import (
     extract_page_id,
     markdown_to_notion_blocks,
@@ -324,6 +325,32 @@ def cmd_browser_paste_markdown(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_deploy(args: argparse.Namespace) -> int:
+    toolkit = NotionToolkit.from_profile(args.profile)
+    writer = toolkit.require_writer()
+    parent_page_id = args.parent_page_id or toolkit.profile.default_parent_page_id
+    if not parent_page_id:
+        raise ValueError(
+            "A parent page id is required via --parent-page-id or the profile default"
+        )
+    target = Path(args.target).resolve()
+    if not target.exists():
+        raise FileNotFoundError(f"Target not found: {target}")
+
+    report = deploy(
+        target=target,
+        writer=writer,
+        parent_page_id=parent_page_id,
+        base_url=args.base_url,
+        force=args.force,
+        dry_run=args.dry_run,
+        tree=getattr(args, "tree", False),
+        landing_filename=getattr(args, "landing", "readme.md"),
+    )
+    _print_json(report.to_dict())
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Native Notion toolkit")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -445,6 +472,50 @@ def build_parser() -> argparse.ArgumentParser:
     browser_paste.add_argument("--file", required=True)
     browser_paste.add_argument("--headed", action="store_true")
     browser_paste.set_defaults(func=cmd_browser_paste_markdown)
+
+    # deploy subcommand (FR-09)
+    deploy_parser = subparsers.add_parser(
+        "deploy",
+        help="Deploy Markdown files to Notion pages",
+    )
+    deploy_parser.add_argument(
+        "target",
+        help="Markdown file or directory to deploy",
+    )
+    deploy_parser.add_argument(
+        "--profile",
+        default=None,
+        help="Workspace profile name (default: default profile)",
+    )
+    deploy_parser.add_argument(
+        "--parent-page-id",
+        help="Notion parent page ID (default: profile setting)",
+    )
+    deploy_parser.add_argument(
+        "--base-url",
+        help="Base URL for resolving relative paths (e.g., GitHub raw URL)",
+    )
+    deploy_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Convert and show results without calling Notion API",
+    )
+    deploy_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force re-deploy all files ignoring content hash",
+    )
+    deploy_parser.add_argument(
+        "--tree",
+        action="store_true",
+        help="Split by H1 headings into separate sub-pages",
+    )
+    deploy_parser.add_argument(
+        "--landing",
+        default="readme.md",
+        help="Landing page filename (default: readme.md)",
+    )
+    deploy_parser.set_defaults(func=cmd_deploy)
 
     return parser
 

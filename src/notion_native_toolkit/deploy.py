@@ -359,6 +359,15 @@ def _deploy_landing(
             pending_links=pending_links,
         )
 
+    # Update page title to match README H1
+    writer.client.update_page(parent_page_id, {
+        "properties": {
+            "title": {
+                "title": [{"type": "text", "text": {"content": title}}]
+            }
+        }
+    })
+
     # Collect existing child page IDs before clearing
     existing_children = writer.client.fetch_children(parent_page_id) or []
     child_page_ids = [

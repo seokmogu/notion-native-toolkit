@@ -22,6 +22,9 @@ class WorkspaceProfile:
     browser_email: CredentialRef | None = None
     browser_password: CredentialRef | None = None
     browser_state_path: str | None = None
+    space_id: str | None = None
+    user_id: str | None = None
+    token_v2: CredentialRef | None = None
     notes: str | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -38,6 +41,12 @@ class WorkspaceProfile:
             payload["browser_password"] = self.browser_password.to_dict()
         if self.browser_state_path is not None:
             payload["browser_state_path"] = self.browser_state_path
+        if self.space_id is not None:
+            payload["space_id"] = self.space_id
+        if self.user_id is not None:
+            payload["user_id"] = self.user_id
+        if self.token_v2 is not None:
+            payload["token_v2"] = self.token_v2.to_dict()
         if self.notes is not None:
             payload["notes"] = self.notes
         return payload
@@ -60,6 +69,11 @@ class WorkspaceProfile:
                 _read_optional_dict(payload, "browser_password")
             ),
             browser_state_path=_read_optional_str(payload, "browser_state_path"),
+            space_id=_read_optional_str(payload, "space_id"),
+            user_id=_read_optional_str(payload, "user_id"),
+            token_v2=CredentialRef.from_dict(
+                _read_optional_dict(payload, "token_v2")
+            ),
             notes=_read_optional_str(payload, "notes"),
         )
 

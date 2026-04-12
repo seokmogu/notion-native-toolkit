@@ -1,0 +1,469 @@
+"""Notion Internal API client (v3).
+
+Provides access to Notion features not available through the official API.
+Uses browser session cookies (token_v2) for authentication.
+
+Warning: These are undocumented, internal endpoints. They may change without notice.
+         Use official API endpoints (NotionApiClient) whenever possible.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import time
+import uuid
+from typing import Any, Iterator
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+INTERNAL_BASE_URL = "https://www.notion.so/api/v3/"
+
+
+class NotionInternalClient:
+    """Client for Notion's internal /api/v3/ endpoints."""
+
+    def __init__(
+        self,
+        token_v2: str,
+        space_id: str,
+        user_id: str | None = None,
+        rate_limit: float = 0.35,
+        timeout: float = 30.0,
+    ) -> None:
+        self.token_v2 = token_v2
+        self.space_id = space_id
+        self.user_id = user_id
+        self.rate_limit = rate_limit
+        self.timeout = timeout
+        verify_ssl = not bool(os.getenv("NO_SSL_VERIFY"))
+        self._session = httpx.Client(
+            base_url=INTERNAL_BASE_URL,
+            timeout=timeout,
+            verify=verify_ssl,
+            cookies={"token_v2": token_v2},
+            headers={
+                "Content-Type": "application/json",
+                "x-notion-active-user-header": user_id or "",
+                "x-notion-space-id": space_id,
+            },
+        )
+
+    def close(self) -> None:
+        self._session.close()
+
+    def __enter__(self) -> NotionInternalClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
+
+    # --- Low-level request ---
+
+    def _post(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        retries: int = 3,
+    ) -> dict[str, Any] | None:
+        """POST to /api/v3/{endpoint} with retry and rate limiting."""
+        backoffs = [1.5, 3.0, 6.0]
+        for attempt in range(retries + 1):
+            time.sleep(self.rate_limit)
+            try:
+                resp = self._session.post(endpoint, json=data or {})
+            except httpx.HTTPError as exc:
+                logger.warning("Request failed: %s %s", endpoint, exc)
+                if attempt < retries:
+                    time.sleep(backoffs[attempt])
+                    continue
+                return None
+
+            if resp.status_code == 429 and attempt < retries:
+                delay = float(resp.headers.get("Retry-After", backoffs[attempt]))
+                logger.info("Rate limited on %s, retrying in %.1fs", endpoint, delay)
+                time.sleep(delay)
+                continue
+
+            if resp.status_code >= 400:
+                logger.warning(
+                    "HTTP %d on %s: %s", resp.status_code, endpoint, resp.text[:200]
+                )
+                return None
+
+            return resp.json()  # type: ignore[no-any-return]
+        return None
+
+    def _post_stream(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """POST and yield ndjson lines (for streaming endpoints like AI)."""
+        time.sleep(self.rate_limit)
+        verify_ssl = not bool(os.getenv("NO_SSL_VERIFY"))
+        with httpx.Client(timeout=self.timeout, verify=verify_ssl) as client:
+            with client.stream(
+                "POST",
+                f"{INTERNAL_BASE_URL}{endpoint}",
+                json=data or {},
+                cookies={"token_v2": self.token_v2},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-notion-active-user-header": self.user_id or "",
+                    "x-notion-space-id": self.space_id,
+                },
+            ) as resp:
+                if resp.status_code >= 400:
+                    logger.warning("Stream HTTP %d on %s", resp.status_code, endpoint)
+                    return
+                import json
+
+                for line in resp.iter_lines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except Exception:
+                        logger.debug("Non-JSON stream line: %s", line[:100])
+
+    # --- Search ---
+
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        """Full-text search across workspace (richer than official API)."""
+        payload: dict[str, Any] = {
+            "type": "BlocksInSpace",
+            "query": query,
+            "limit": limit,
+            "source": "quick_find",
+            "spaceId": self.space_id,
+            "sort": {"field": "relevance"},
+            "filters": filters or {
+                "isDeletedOnly": False,
+                "excludeTemplates": False,
+                "navigableBlockContentOnly": False,
+                "requireEditPermissions": False,
+                "ancestors": [],
+                "createdBy": [],
+                "editedBy": [],
+                "lastEditedTime": {},
+                "createdTime": {},
+                "inTeams": [],
+                "contentStatusFilter": "all_without_archived",
+            },
+        }
+        return self._post("search", payload)
+
+    # --- Users & Members ---
+
+    def list_users_search(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> dict[str, Any] | None:
+        """Search users by name or email (used in share/invite flow)."""
+        return self._post("listUsers", {
+            "limit": limit,
+            "query": query,
+            "spaceId": self.space_id,
+            "includeAliasSearch": True,
+        })
+
+    def find_user(self, email: str) -> dict[str, Any] | None:
+        """Find a Notion user by exact email (external user lookup).
+
+        Note: This endpoint may require specific auth context and can fail
+        with 400 for internal workspace members. For searching members,
+        use list_users_search() instead which supports name and email queries.
+        """
+        return self._post("findUser", {"email": email})
+
+    def get_visible_users(self) -> dict[str, Any] | None:
+        """Get all visible users in the workspace."""
+        return self._post("getVisibleUsers", {
+            "spaceId": self.space_id,
+            "supportsEdgeCache": True,
+            "earlyReturnForEdgeCache": True,
+        })
+
+    def get_teams(
+        self,
+        team_types: list[str] | None = None,
+    ) -> dict[str, Any] | None:
+        """Get teams in workspace."""
+        return self._post("getTeamsV2", {
+            "spaceId": self.space_id,
+            "teamTypes": team_types or ["Joined"],
+            "includeMembershipSummary": False,
+        })
+
+    def get_internal_domains(self) -> dict[str, Any] | None:
+        """Get internal (trusted) email domains."""
+        return self._post("getInternalDomains", {"spaceId": self.space_id})
+
+    def get_member_email_domains(self) -> dict[str, Any] | None:
+        """Get email domains of current members."""
+        return self._post("getMemberEmailDomains", {"spaceId": self.space_id})
+
+    def get_permission_groups(self) -> dict[str, Any] | None:
+        """Get all permission groups with member counts."""
+        return self._post(
+            "getAllSpacePermissionGroupsWithMemberCount",
+            {"spaceId": self.space_id},
+        )
+
+    # --- AI ---
+
+    def get_available_models(self) -> dict[str, Any] | None:
+        """Get AI models available for the workspace."""
+        return self._post("getAvailableModels", {"spaceId": self.space_id})
+
+    def get_ai_usage(self) -> dict[str, Any] | None:
+        """Get AI usage and credit limits."""
+        return self._post("getAIUsageEligibilityV2", {"spaceId": self.space_id})
+
+    def get_custom_agents(self) -> dict[str, Any] | None:
+        """Get custom AI agents in workspace."""
+        return self._post("getCustomAgents", {
+            "spaceId": self.space_id,
+            "filter": "all",
+            "includeDeleted": False,
+        })
+
+    def get_ai_connectors(self) -> dict[str, Any] | None:
+        """Get AI connector integrations (Slack, Calendar, etc.)."""
+        return self._post("listAIConnectors", {"spaceId": self.space_id})
+
+    def get_user_prompts(self) -> dict[str, Any] | None:
+        """Get user's saved AI prompts."""
+        return self._post("getUserPromptsInSpace", {"spaceId": self.space_id})
+
+    def run_ai(
+        self,
+        prompt: str,
+        block_id: str | None = None,
+        thread_id: str | None = None,
+        agent_name: str = "AI",
+    ) -> Iterator[dict[str, Any]]:
+        """Run Notion AI and stream the response (ndjson).
+
+        Args:
+            prompt: The user prompt text.
+            block_id: Current page/block context for the AI.
+            thread_id: Existing thread ID to continue, or None for new.
+            agent_name: Display name for the AI agent.
+
+        Yields:
+            Parsed ndjson objects from the streaming response.
+        """
+        import datetime
+
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        tid = thread_id or str(uuid.uuid4())
+
+        transcript: list[dict[str, Any]] = [
+            {
+                "id": str(uuid.uuid4()),
+                "type": "config",
+                "value": {
+                    "type": "workflow",
+                    "enableScriptAgent": True,
+                    "enableAgentIntegrations": True,
+                    "enableCustomAgents": True,
+                    "enableAgentDiffs": True,
+                    "useWebSearch": True,
+                    "writerMode": False,
+                    "isCustomAgent": False,
+                    "isMobile": False,
+                    "searchScopes": [{"type": "everything"}],
+                },
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "type": "context",
+                "value": {
+                    "timezone": "Asia/Seoul",
+                    "userId": self.user_id or "",
+                    "spaceId": self.space_id,
+                    "currentDatetime": now,
+                    "surface": "workflows",
+                    "blockId": block_id or "",
+                    "agentName": agent_name,
+                },
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "type": "user",
+                "value": [[prompt]],
+                "userId": self.user_id or "",
+                "createdAt": now,
+            },
+        ]
+
+        payload: dict[str, Any] = {
+            "traceId": str(uuid.uuid4()),
+            "spaceId": self.space_id,
+            "transcript": transcript,
+            "threadId": tid,
+            "threadParentPointer": {
+                "table": "space",
+                "id": self.space_id,
+                "spaceId": self.space_id,
+            },
+            "createThread": thread_id is None,
+            "generateTitle": True,
+            "threadType": "workflow",
+            "asPatchResponse": True,
+        }
+
+        yield from self._post_stream("runInferenceTranscript", payload)
+
+    # --- Content ---
+
+    def load_page_chunk(
+        self,
+        page_id: str,
+    ) -> dict[str, Any] | None:
+        """Load full page content via internal chunked loader."""
+        return self._post("loadCachedPageChunkV2", {
+            "page": {"id": page_id},
+            "cursor": {"stack": []},
+            "verticalColumns": False,
+        })
+
+    def get_backlinks(self, block_id: str) -> dict[str, Any] | None:
+        """Get pages that link to this block."""
+        return self._post("getBacklinksForBlockInitial", {
+            "block": {"id": block_id},
+        })
+
+    def detect_language(self, page_id: str) -> dict[str, Any] | None:
+        """Detect the language of a page's content."""
+        return self._post("detectPageLanguage", {
+            "pagePointer": {
+                "id": page_id,
+                "table": "block",
+                "spaceId": self.space_id,
+            },
+        })
+
+    # --- Transactions (write operations) ---
+
+    def save_transactions(
+        self,
+        operations: list[dict[str, Any]],
+        user_action: str = "sdk",
+    ) -> dict[str, Any] | None:
+        """Execute write operations via saveTransactionsMain.
+
+        Use for structural changes: creating blocks, setting properties,
+        changing parents. For text edits, use save_transactions_fanout.
+        """
+        return self._post("saveTransactionsMain", {
+            "requestId": str(uuid.uuid4()),
+            "transactions": [{
+                "id": str(uuid.uuid4()),
+                "spaceId": self.space_id,
+                "debug": {"userAction": user_action},
+                "operations": operations,
+            }],
+        })
+
+    def save_transactions_fanout(
+        self,
+        operations: list[dict[str, Any]],
+        user_action: str = "sdk",
+    ) -> dict[str, Any] | None:
+        """Execute content mutations via saveTransactionsFanout.
+
+        Use for text edits, incremental content changes, lock/unlock.
+        """
+        return self._post("saveTransactionsFanout", {
+            "requestId": str(uuid.uuid4()),
+            "transactions": [{
+                "id": str(uuid.uuid4()),
+                "spaceId": self.space_id,
+                "debug": {"userAction": user_action},
+                "operations": operations,
+            }],
+        })
+
+    # --- Workspace ---
+
+    def get_space_usage(self) -> dict[str, Any] | None:
+        """Get block usage stats for the workspace."""
+        return self._post("getSpaceBlockUsage", {"spaceId": self.space_id})
+
+    def get_bots(self) -> dict[str, Any] | None:
+        """Get integration bots connected to workspace."""
+        return self._post("getBots", {"spaceId": self.space_id})
+
+    def search_integrations(
+        self,
+        query: str = "",
+        integration_type: str = "compliance",
+    ) -> dict[str, Any] | None:
+        """Search available integrations."""
+        return self._post("searchIntegrations", {
+            "query": query,
+            "type": integration_type,
+            "spaceId": self.space_id,
+        })
+
+    # --- Convenience: high-level operations ---
+
+    def create_db_row(
+        self,
+        collection_id: str,
+        properties: dict[str, Any] | None = None,
+    ) -> str | None:
+        """Create a new row in a database collection.
+
+        Returns the new page/block ID, or None on failure.
+        """
+        block_id = str(uuid.uuid4())
+        now_ms = int(time.time() * 1000)
+        ops: list[dict[str, Any]] = [
+            {
+                "command": "set",
+                "pointer": {
+                    "table": "block",
+                    "id": block_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "args": {
+                    "id": block_id,
+                    "type": "page",
+                    "properties": properties or {"title": []},
+                    "space_id": self.space_id,
+                    "created_time": now_ms,
+                    "created_by_table": "notion_user",
+                    "created_by_id": self.user_id,
+                    "last_edited_time": now_ms,
+                },
+            },
+            {
+                "command": "setParent",
+                "pointer": {
+                    "table": "block",
+                    "id": block_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "args": {
+                    "parentId": collection_id,
+                    "parentTable": "collection",
+                },
+            },
+        ]
+        result = self.save_transactions(ops, user_action="sdk.createDbRow")
+        return block_id if result is not None else None

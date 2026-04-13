@@ -467,3 +467,157 @@ class NotionInternalClient:
         ]
         result = self.save_transactions(ops, user_action="sdk.createDbRow")
         return block_id if result is not None else None
+
+    # --- Authentication ---
+
+    @classmethod
+    def login(
+        cls,
+        email: str,
+        password: str,
+        space_id: str | None = None,
+        headed: bool = True,
+        slow_mo: int = 100,
+    ) -> dict[str, str]:
+        """Log in to Notion via browser and return credentials.
+
+        Uses Playwright to automate the login flow with hCaptcha auto-pass.
+        Requires headed=True (default) for hCaptcha to resolve.
+
+        Args:
+            email: Notion account email.
+            password: Account password.
+            space_id: Workspace space ID (extracted from response if not given).
+            headed: Show browser window. Must be True for hCaptcha.
+            slow_mo: Delay between actions in ms (human-like typing).
+
+        Returns:
+            Dict with 'token_v2', 'user_id', and 'space_id'.
+
+        Raises:
+            RuntimeError: If login fails or token_v2 is not received.
+        """
+        import random as _random
+
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise RuntimeError(
+                "playwright is required for login. Install with: pip install playwright && playwright install chromium"
+            ) from exc
+
+        login_result: dict[str, str] = {}
+
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                headless=not headed,
+                channel="chrome",
+                args=["--window-position=3000,3000", "--window-size=1440,900"],
+            )
+            ctx = browser.new_context(
+                viewport={"width": 1440, "height": 900},
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                ),
+            )
+            page = ctx.new_page()
+
+            # Capture loginWithEmail response for user_id
+            def _on_resp(resp: object) -> None:
+                url = getattr(resp, "url", "")
+                if "loginWithEmail" in url:
+                    try:
+                        body = resp.json()  # type: ignore[union-attr]
+                        if isinstance(body, dict) and "userId" in body:
+                            login_result["user_id"] = body["userId"]
+                    except Exception:
+                        pass
+
+            page.on("response", _on_resp)
+
+            logger.info("Opening Notion login page...")
+            page.goto("https://www.notion.so/login", wait_until="domcontentloaded", timeout=30000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:
+                pass
+            time.sleep(4)
+
+            # Email
+            logger.info("Entering email...")
+            email_input = page.locator('input[type="email"]').first
+            email_input.click()
+            time.sleep(0.5)
+            for ch in email:
+                page.keyboard.type(ch)
+                time.sleep(_random.uniform(0.05, 0.12))
+            time.sleep(2)
+
+            # Click continue
+            for label in ["계속", "Continue", "이메일로 계속"]:
+                btn = page.get_by_role("button", name=label)
+                if btn.first.is_visible(timeout=2000):
+                    btn.first.click()
+                    break
+            time.sleep(8)
+
+            # Password
+            logger.info("Entering password...")
+            pw_input = page.locator('input[type="password"]').first
+            if not pw_input.is_visible(timeout=5000):
+                ctx.close()
+                browser.close()
+                raise RuntimeError(
+                    "Password field not found. Notion may require email verification "
+                    "(mustReverify). Try again or use a slower connection."
+                )
+
+            pw_input.click()
+            time.sleep(0.5)
+            for ch in password:
+                page.keyboard.type(ch)
+                time.sleep(_random.uniform(0.06, 0.15))
+            time.sleep(2)
+
+            # Click login
+            logger.info("Submitting login...")
+            for label in ["비밀번호로 계속하기", "Continue with password", "Continue", "Log in"]:
+                btn = page.get_by_role("button", name=label)
+                if btn.first.is_visible(timeout=2000):
+                    btn.first.click()
+                    break
+            else:
+                page.keyboard.press("Enter")
+
+            # Wait for redirect
+            for _ in range(30):
+                time.sleep(1)
+                token = next(
+                    (c for c in ctx.cookies() if c["name"] == "token_v2"), None
+                )
+                if token:
+                    login_result["token_v2"] = token["value"]
+                    break
+                if "login" not in page.url.lower():
+                    # Check cookies after redirect
+                    token = next(
+                        (c for c in ctx.cookies() if c["name"] == "token_v2"), None
+                    )
+                    if token:
+                        login_result["token_v2"] = token["value"]
+                    break
+
+            ctx.close()
+            browser.close()
+
+        if "token_v2" not in login_result:
+            raise RuntimeError(
+                "Login failed: token_v2 not received. "
+                "Check credentials or try with headed=True."
+            )
+
+        if space_id:
+            login_result["space_id"] = space_id
+
+        return login_result

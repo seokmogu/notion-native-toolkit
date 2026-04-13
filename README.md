@@ -1,259 +1,544 @@
 # notion-native-toolkit
 
-Notion SDK for Python. Official API + internal API in one package.
+Notion 공식 API와 내부 API를 하나의 Python SDK로 통합한 툴킷입니다.
 
-## Why this exists
+## 이 프로젝트가 필요한 이유
 
-- One SDK to access both Notion's official API (v1) and internal API (v3).
-- Official API covers pages, blocks, databases, comments, search-by-title.
-- Internal API covers everything else: full-text search, AI execution, user/member management, guest invite flow, workspace analytics.
-- Manage multiple workspaces with profiles, Keychain secret storage, and browser fallback.
-- Reuse across projects instead of rebuilding Notion scripts.
+Notion의 공식 API(v1)는 페이지, 블록, 데이터베이스 등 기본 CRUD만 제공합니다. 하지만 실제 업무 자동화에 필요한 기능들 - AI 실행, 풀텍스트 검색, 게스트 초대, 워크스페이스 관리 등은 공식 API에 없습니다.
 
-## Architecture
+이 툴킷은 Notion의 **내부 API(v3)**를 분석하여 SDK로 제공합니다. 90+ 내부 엔드포인트를 캡처/검증했으며, integration test로 API 변경을 감지합니다.
+
+### 공식 API vs 내부 API 비교
+
+| 기능 | 공식 API (v1) | 내부 API (v3) |
+|------|:---:|:---:|
+| 페이지/블록 CRUD | O | O |
+| 데이터베이스 쿼리 | O | O |
+| 마크다운 읽기/쓰기 | O | - |
+| 댓글 | O | - |
+| 파일 업로드 | O | - |
+| **풀텍스트 검색 (필터/정렬/부스팅)** | - | O |
+| **AI 실행 (스트리밍)** | - | O |
+| **AI 모델/크레딧/에이전트 관리** | - | O |
+| **사용자 검색 (이름/이메일)** | - | O |
+| **팀/권한 그룹 관리** | - | O |
+| **게스트 초대 플로우** | - | O |
+| **워크스페이스 사용량/분석** | - | O |
+| **트랜잭션 기반 쓰기 (행 생성 등)** | - | O |
+| **페이지 백링크 조회** | - | O |
+| **언어 감지** | - | O |
+| **Integration/봇 관리** | - | O |
+| **자동 로그인 (token_v2 발급)** | - | O |
+
+## 아키텍처
 
 ```
 NotionToolkit.from_profile("worxphere")
-  .client     -> NotionApiClient     (official v1, Bearer token)
-  .internal   -> NotionInternalClient (internal v3, token_v2 cookie)
-  .browser    -> NotionBrowserAutomation (Playwright fallback)
-  .writer     -> NotionWriter         (Markdown -> Notion blocks)
+  ├─ .client     → NotionApiClient          공식 API v1 (Bearer 토큰, api.notion.com)
+  ├─ .internal   → NotionInternalClient      내부 API v3 (token_v2 쿠키, notion.so/api/v3/)
+  ├─ .browser    → NotionBrowserAutomation   Playwright 브라우저 폴백
+  └─ .writer     → NotionWriter              마크다운 → Notion 블록 변환
 ```
 
-## Core capabilities
+### 인증 방식 차이
 
-- **Official API client**: Pages, blocks, databases, comments, file uploads, markdown read/write.
-- **Internal API client**: Full-text search, AI (streaming ndjson), user search, teams, permission groups, workspace usage, transaction-based mutations.
-- **Multi-workspace profiles** with per-workspace API token, token_v2, workspace URL, page defaults, and browser session state.
-- **Native macOS Keychain** secret storage for API tokens, login emails, and passwords.
-- **Browser automation** for login, teamspace listing, teamspace creation, and Markdown paste fallback.
-- **Markdown conversion**: Markdown to Notion blocks and back.
+| | 공식 API | 내부 API |
+|---|---|---|
+| 인증 방식 | Bearer 토큰 (OAuth) | token_v2 쿠키 (브라우저 세션) |
+| 베이스 URL | `https://api.notion.com/v1/` | `https://www.notion.so/api/v3/` |
+| 토큰 발급 | Notion Integration 생성 | 로그인 (이메일/비밀번호) |
+| 토큰 만료 | 무제한 (수동 폐기) | ~1년 (자동 갱신 가능) |
 
-## Install
+## 설치
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-playwright install chromium
+playwright install chromium  # 브라우저 자동화 및 로그인에 필요
 ```
 
-## Quick start
-
-Initialize config:
-
-```bash
-notion-native profile init
-```
-
-Create a workspace profile:
-
-```bash
-notion-native profile add team-a \
-  --workspace-url https://www.notion.so/team-a \
-  --parent-page-id 0123456789abcdef0123456789abcdef
-```
-
-Store the API token in macOS Keychain and bind it to the profile:
-
-```bash
-notion-native profile set-token team-a --value "ntn_xxx" --keychain
-```
-
-Store browser credentials:
-
-```bash
-notion-native profile set-browser-login team-a \
-  --email user@example.com \
-  --password "super-secret" \
-  --keychain
-```
-
-Fetch a page as Markdown:
-
-```bash
-notion-native markdown from-page --profile team-a --page https://www.notion.so/... --output page.md
-```
-
-Create a page from Markdown:
-
-```bash
-notion-native page create-from-markdown \
-  --profile team-a \
-  --title "Spec" \
-  --parent-page-id 0123456789abcdef0123456789abcdef \
-  --file docs/spec.md
-```
-
-By default, the CLI prefers Notion's native markdown endpoints when available. Use block conversion explicitly when you need the custom block pipeline:
-
-```bash
-notion-native page update-from-markdown \
-  --profile team-a \
-  --page-id 0123456789abcdef0123456789abcdef \
-  --file docs/spec.md \
-  --mode blocks
-```
-
-Use browser fallback for unsupported actions:
-
-```bash
-notion-native browser login --profile team-a --headed
-notion-native browser list-teamspaces --profile team-a
-```
-
-## Config model
-
-The toolkit stores profiles in `~/.config/notion-native-toolkit/workspaces.json` by default.
-
-Example structure:
-
-```json
-{
-  "default_profile": "team-a",
-  "profiles": {
-    "team-a": {
-      "workspace_url": "https://www.notion.so/team-a",
-      "default_parent_page_id": "0123456789abcdef0123456789abcdef",
-      "api_token": {
-        "kind": "keychain",
-        "service": "notion-native-toolkit",
-        "account": "team-a.api_token"
-      },
-      "browser_email": {
-        "kind": "keychain",
-        "service": "notion-native-toolkit",
-        "account": "team-a.browser_email"
-      },
-      "browser_password": {
-        "kind": "keychain",
-        "service": "notion-native-toolkit",
-        "account": "team-a.browser_password"
-      },
-      "browser_state_path": "~/.config/notion-native-toolkit/browser-state/team-a.json"
-    }
-  }
-}
-```
-
-## Project integration
-
-Recommended usage in any project:
+다른 프로젝트에서 사용할 때:
 
 ```bash
 pip install notion-native-toolkit
-```
 
-For workspace-local development, an editable install also works:
-
-```bash
+# 또는 editable 설치 (개발 시)
 pip install -e /path/to/notion-native-toolkit
 ```
 
-Then call the shared CLI from the project, or import the package:
+## 빠른 시작
+
+### 1. 프로필 설정
+
+```bash
+# 설정 파일 초기화
+notion-native profile init
+
+# 워크스페이스 프로필 추가
+notion-native profile add worxphere \
+  --workspace-url https://www.notion.so/worxphere \
+  --parent-page-id 0123456789abcdef0123456789abcdef
+
+# 공식 API 토큰 저장 (macOS Keychain)
+notion-native profile set-token worxphere --value "ntn_xxx" --keychain
+
+# 브라우저 로그인 정보 저장
+notion-native profile set-browser-login worxphere \
+  --email user@example.com \
+  --password "password" \
+  --keychain
+```
+
+### 2. 공식 API 사용
 
 ```python
 from notion_native_toolkit import NotionToolkit
 
-toolkit = NotionToolkit.from_profile("team-a")
+toolkit = NotionToolkit.from_profile("worxphere")
 
-# Official API (Bearer token)
+# 페이지 조회
 page = toolkit.client.fetch_page("page-id")
-rows = toolkit.client.query_database("db-id")
 
-# Internal API (token_v2 cookie)
-internal = toolkit.require_internal()
+# 데이터베이스 쿼리
+rows = toolkit.client.query_database("db-id", {
+    "filter": {"property": "Status", "status": {"equals": "Done"}}
+})
 
-# Full-text search (richer than official API)
-results = internal.search("meeting notes", limit=10)
+# 마크다운으로 페이지 생성
+toolkit.client.create_page_markdown(
+    parent_page_id="parent-id",
+    title="새 문서",
+    markdown="# 제목\n\n본문 내용입니다.",
+)
 
-# User/member search (for invite flows)
-users = internal.list_users_search("kim")
+# 마크다운 읽기
+md = toolkit.client.retrieve_markdown("page-id")
 
-# AI
-models = internal.get_available_models()
-usage = internal.get_ai_usage()
-agents = internal.get_custom_agents()
-
-# AI execution (streaming ndjson)
-for chunk in internal.run_ai("Summarize this page", block_id="page-id"):
-    print(chunk)
-
-# Teams and workspace
-teams = internal.get_teams()
-groups = internal.get_permission_groups()
-domains = internal.get_internal_domains()
-
-# Content
-backlinks = internal.get_backlinks("page-id")
-lang = internal.detect_language("page-id")
-
-# Write operations (transaction-based)
-row_id = internal.create_db_row("collection-id", properties={"title": [["New Row"]]})
+# 파일 업로드
+upload = toolkit.client.create_file_upload("report.pdf")
+toolkit.client.send_file_upload(upload["id"], "report.pdf", file_bytes)
 ```
 
-## Internal API setup
+### 3. 내부 API 사용
 
-The internal client requires `token_v2` (browser session cookie) and `space_id`.
+```python
+from notion_native_toolkit.internal import NotionInternalClient
 
-Get your token_v2 from Chrome DevTools > Application > Cookies > `token_v2`.
-Get your space_id from any Notion API response or the URL after `notion.so/`.
+# 방법 A: 자동 로그인으로 token_v2 발급
+creds = NotionInternalClient.login(
+    email="user@example.com",
+    password="password",
+    space_id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+)
+client = NotionInternalClient(
+    token_v2=creds["token_v2"],
+    space_id=creds["space_id"],
+    user_id=creds["user_id"],
+)
 
-Add to your workspace profile in `~/.config/notion-native-toolkit/workspaces.json`:
+# 방법 B: 프로필에 token_v2 설정 후 toolkit에서 사용
+toolkit = NotionToolkit.from_profile("worxphere")
+client = toolkit.require_internal()
+```
+
+#### 검색
+
+```python
+# 풀텍스트 검색 (공식 API의 제목 검색보다 강력)
+results = client.search("회의록", limit=20)
+# → results["results"]: 매칭된 블록 목록
+# → results["total"]: 전체 매칭 수
+# → results["recordMap"]: 관련 레코드
+
+# 필터를 사용한 검색
+results = client.search("프로젝트", limit=10, filters={
+    "isDeletedOnly": False,
+    "navigableBlockContentOnly": True,
+    "requireEditPermissions": True,
+    "ancestors": [],
+    "createdBy": [],
+    "editedBy": [],
+    "inTeams": [],
+    "contentStatusFilter": "all_without_archived",
+})
+```
+
+#### 사용자/멤버 관리
+
+```python
+# 이름 또는 이메일로 사용자 검색 (게스트 초대에 활용)
+users = client.list_users_search("kim")
+# → users["users"]: [{id, name, email, membership_type, ...}]
+
+# 이메일로 사용자 조회 (외부 사용자)
+user = client.find_user("guest@external.com")
+
+# 워크스페이스 전체 사용자 목록
+all_users = client.get_visible_users()
+
+# 팀 목록
+teams = client.get_teams()
+# → teams["teams"]: [{id, name, members, ...}]
+
+# 권한 그룹 및 멤버 수
+groups = client.get_permission_groups()
+
+# 내부 이메일 도메인 목록
+domains = client.get_internal_domains()
+# → domains["internalDomains"]: ["company.com", "worxphere.ai"]
+
+# 멤버 이메일 도메인
+email_domains = client.get_member_email_domains()
+```
+
+#### AI
+
+```python
+# 사용 가능한 AI 모델 확인
+models = client.get_available_models()
+# → models["models"]: ["gpt-4", "claude", ...]
+
+# AI 크레딧 사용량/한도 조회
+usage = client.get_ai_usage()
+# → usage["usage"], usage["limits"], usage["basicCredits"], usage["premiumCredits"]
+
+# 커스텀 AI 에이전트 목록
+agents = client.get_custom_agents()
+# → agents["agentIds"]: ["agent-1", "agent-2"]
+
+# AI 커넥터 (Slack, Calendar 등) 조회
+connectors = client.get_ai_connectors()
+# → connectors["connectedConnectors"], connectors["availableConnectors"]
+
+# 저장된 AI 프롬프트
+prompts = client.get_user_prompts()
+
+# AI 실행 (ndjson 스트리밍 응답)
+for chunk in client.run_ai("이 페이지를 요약해줘", block_id="page-id"):
+    print(chunk)
+    # 각 chunk는 AI 응답의 일부 (토큰 단위)
+```
+
+#### 콘텐츠
+
+```python
+# 페이지 전체 콘텐츠 로드 (내부 chunked loader)
+page_data = client.load_page_chunk("page-id")
+# → page_data["recordMap"]: 페이지 내 모든 블록 레코드
+
+# 이 페이지를 참조하는 다른 페이지 (백링크)
+backlinks = client.get_backlinks("page-id")
+# → backlinks["backlinks"]: [{id, ...}]
+
+# 페이지 언어 감지
+lang = client.detect_language("page-id")
+# → lang["detectedLanguage"]: "ko"
+```
+
+#### 쓰기 (트랜잭션)
+
+Notion의 모든 쓰기 작업은 트랜잭션 기반입니다. 두 가지 엔드포인트가 있습니다:
+
+- `save_transactions()` — 구조적 변경 (행 생성, 속성 설정, 부모 변경)
+- `save_transactions_fanout()` — 콘텐츠 변경 (텍스트 입력/삭제)
+
+```python
+# 데이터베이스에 새 행 추가 (편의 메서드)
+row_id = client.create_db_row(
+    collection_id="collection-id",
+    properties={"title": [["새 항목"]]}
+)
+
+# 직접 트랜잭션 실행 (고급)
+client.save_transactions([
+    {
+        "command": "set",
+        "pointer": {"table": "block", "id": "block-id", "spaceId": "space-id"},
+        "path": ["properties", "title"],
+        "args": [["수정된 제목"]],
+    }
+])
+```
+
+#### 워크스페이스
+
+```python
+# 블록 사용량 통계
+usage = client.get_space_usage()
+# → usage["blockUsage"]: 12345
+
+# 연결된 Integration/봇 목록
+bots = client.get_bots()
+
+# Integration 검색
+integrations = client.search_integrations("slack")
+```
+
+## 자동 로그인 (token_v2 발급)
+
+내부 API는 브라우저 세션 쿠키(`token_v2`)로 인증합니다. 이 SDK는 Playwright를 사용해 로그인을 자동화합니다.
+
+### 로그인 플로우
+
+```
+1. getLoginOptions(email)
+   → loginOptionsToken, challengeProvider: "hcaptcha"
+
+2. hCaptcha 자동 통과 (headed Chrome에서 자동 해결)
+
+3. loginWithEmail(email, password, challengeToken, loginOptionsToken)
+   → Set-Cookie: token_v2=... (만료: ~1년)
+
+4. authValidate()
+   → 세션 검증 완료
+```
+
+### 사용법
+
+```python
+from notion_native_toolkit.internal import NotionInternalClient
+
+# 로그인하여 token_v2 발급 (브라우저가 화면 밖에서 자동 실행)
+creds = NotionInternalClient.login(
+    email="user@example.com",
+    password="password",
+    space_id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+)
+
+# 발급된 자격 증명으로 클라이언트 생성
+client = NotionInternalClient(
+    token_v2=creds["token_v2"],   # ~1년 유효
+    space_id=creds["space_id"],
+    user_id=creds["user_id"],
+)
+```
+
+### 주의사항
+
+- `headed=True`(기본값)이어야 hCaptcha가 자동 통과됩니다.
+- 입력 속도가 너무 빠르면 봇으로 판단하여 이메일 인증(`mustReverify`)이 필요할 수 있습니다. SDK는 사람과 유사한 속도로 입력합니다.
+- token_v2는 약 1년간 유효합니다. 만료 시 `login()`을 다시 호출하면 됩니다.
+
+## 프로필 설정
+
+툴킷은 `~/.config/notion-native-toolkit/workspaces.json`에 프로필을 저장합니다.
+
+### 설정 파일 구조
 
 ```json
 {
+  "default_profile": "worxphere",
   "profiles": {
-    "team-a": {
-      "workspace_url": "https://www.notion.so/team-a",
-      "api_token": { "kind": "keychain", "service": "notion-native-toolkit", "account": "team-a.api_token" },
+    "worxphere": {
+      "workspace_url": "https://www.notion.so/worxphere",
+      "default_parent_page_id": "0123456789abcdef0123456789abcdef",
+      "api_token": {
+        "kind": "keychain",
+        "service": "notion-native-toolkit",
+        "account": "worxphere.api_token"
+      },
       "space_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
       "user_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-      "token_v2": { "kind": "env", "variable": "NOTION_TOKEN_V2" }
+      "token_v2": {
+        "kind": "env",
+        "variable": "NOTION_TOKEN_V2"
+      },
+      "browser_email": {
+        "kind": "keychain",
+        "service": "notion-native-toolkit",
+        "account": "worxphere.browser_email"
+      },
+      "browser_password": {
+        "kind": "keychain",
+        "service": "notion-native-toolkit",
+        "account": "worxphere.browser_password"
+      },
+      "browser_state_path": "~/.config/notion-native-toolkit/browser-state/worxphere.json"
     }
   }
 }
 ```
 
-Note: `token_v2` is a browser session cookie that expires. Refresh it when integration tests start failing.
+### 자격 증명 저장 방식
 
-## Testing
+| 방식 | 설정 | 용도 |
+|------|------|------|
+| macOS Keychain | `{"kind": "keychain", "service": "...", "account": "..."}` | 가장 안전, 로컬 개발용 |
+| 환경 변수 | `{"kind": "env", "variable": "NOTION_TOKEN_V2"}` | CI/CD, 컨테이너 |
+| 직접 값 | `{"kind": "value", "value": "ntn_xxx"}` | 테스트 전용 (비권장) |
+
+## CLI 사용법
+
+### 페이지 관리
 
 ```bash
-# Unit tests (mocked, no API calls)
+# 마크다운에서 페이지 생성
+notion-native page create-from-markdown \
+  --profile worxphere \
+  --title "문서 제목" \
+  --parent-page-id 0123456789abcdef \
+  --file docs/spec.md
+
+# 페이지를 마크다운으로 변환
+notion-native markdown from-page \
+  --profile worxphere \
+  --page https://www.notion.so/... \
+  --output page.md
+
+# 페이지 내용 마크다운으로 업데이트
+notion-native page update-from-markdown \
+  --profile worxphere \
+  --page-id 0123456789abcdef \
+  --file docs/spec.md \
+  --mode blocks  # blocks 또는 markdown (기본: markdown)
+```
+
+### 브라우저 자동화
+
+```bash
+# 브라우저로 로그인 (API 미지원 기능용)
+notion-native browser login --profile worxphere --headed
+
+# 팀스페이스 목록 조회
+notion-native browser list-teamspaces --profile worxphere
+
+# 팀스페이스 생성
+notion-native browser create-teamspace --profile worxphere --name "새 팀"
+```
+
+### 프로필 관리
+
+```bash
+# 프로필 초기화
+notion-native profile init
+
+# 프로필 추가
+notion-native profile add team-a --workspace-url https://www.notion.so/team-a
+
+# API 토큰 설정 (Keychain)
+notion-native profile set-token team-a --value "ntn_xxx" --keychain
+```
+
+## 테스트
+
+```bash
+# 유닛 테스트 (mock, API 호출 없음, 빠름)
 pytest tests/ -q -m "not integration"
 
-# Integration tests (hits real Notion API, requires cookies)
+# Integration 테스트 (실제 Notion API 호출, 쿠키 필요)
 pytest tests/test_internal_integration.py -v
 
-# All tests
+# 전체 테스트
 pytest tests/ -v
 ```
 
-Integration tests serve as a change detector. If Notion changes their internal API, the failing tests tell you exactly which SDK methods broke.
+### Integration 테스트의 역할
 
-## Shared guidance
+Integration 테스트는 **API 변경 감지기** 역할을 합니다. Notion이 내부 API를 변경하면 실패하는 테스트가 어떤 SDK 메서드가 영향 받았는지 정확히 알려줍니다.
 
-- Centralized operating rules live in `docs/notion-toolkit-guidelines.md`.
-- The bundled Claude skill lives in `.claude/skills/notion-native-toolkit/SKILL.md`.
+| 테스트 카테고리 | 검증 항목 | 테스트 수 |
+|--------------|----------|----------|
+| Search | 풀텍스트 검색, 빈 쿼리 | 2 |
+| Users | 사용자 검색, 팀, 도메인, 권한 그룹 | 6 |
+| AI | 모델, 크레딧, 에이전트, 커넥터, 프롬프트 | 5 |
+| Content | 페이지 로드, 백링크, 언어 감지 | 3 |
+| Workspace | 사용량, Integration 검색 | 2 |
+| **합계** | | **18** |
 
-## Available internal API methods
+## 내부 API 메서드 전체 목록
 
-| Category | Methods |
-|----------|---------|
-| **Search** | `search(query)` |
-| **Users** | `list_users_search(query)`, `find_user(email)`, `get_visible_users()`, `get_teams()`, `get_internal_domains()`, `get_member_email_domains()`, `get_permission_groups()` |
-| **AI** | `run_ai(prompt)`, `get_available_models()`, `get_ai_usage()`, `get_custom_agents()`, `get_ai_connectors()`, `get_user_prompts()` |
-| **Content** | `load_page_chunk(page_id)`, `get_backlinks(block_id)`, `detect_language(page_id)` |
-| **Write** | `save_transactions(ops)`, `save_transactions_fanout(ops)`, `create_db_row(collection_id)` |
-| **Workspace** | `get_space_usage()`, `get_bots()`, `search_integrations(query)` |
+### 인증
 
-Full endpoint documentation: `docs/internal-api-capture.md`
+| 메서드 | 설명 |
+|--------|------|
+| `NotionInternalClient.login(email, password)` | 브라우저 로그인 후 token_v2 발급 |
 
-## Notes
+### 검색
 
-- Keep project-specific business logic in the consuming project; keep Notion I/O in this toolkit.
-- The toolkit never commits secrets; use environment variables or Keychain references.
-- Internal API endpoints are undocumented and may change without notice. Integration tests detect breakage.
-- Browser selectors may need updates when Notion changes its UI.
-- Browser commands can run from a profile without an API token; API and page commands require one.
+| 메서드 | 설명 |
+|--------|------|
+| `search(query, limit, filters)` | 워크스페이스 풀텍스트 검색 |
+
+### 사용자/멤버
+
+| 메서드 | 설명 |
+|--------|------|
+| `list_users_search(query)` | 이름/이메일로 사용자 검색 |
+| `find_user(email)` | 이메일로 외부 사용자 조회 |
+| `get_visible_users()` | 워크스페이스 전체 사용자 |
+| `get_teams()` | 팀 목록 |
+| `get_internal_domains()` | 내부 이메일 도메인 |
+| `get_member_email_domains()` | 멤버 이메일 도메인 |
+| `get_permission_groups()` | 권한 그룹 및 멤버 수 |
+
+### AI
+
+| 메서드 | 설명 |
+|--------|------|
+| `run_ai(prompt, block_id)` | AI 실행 (ndjson 스트리밍) |
+| `get_available_models()` | 사용 가능한 AI 모델 |
+| `get_ai_usage()` | AI 크레딧 사용량/한도 |
+| `get_custom_agents()` | 커스텀 AI 에이전트 |
+| `get_ai_connectors()` | AI 커넥터 (Slack, Calendar 등) |
+| `get_user_prompts()` | 저장된 프롬프트 |
+
+### 콘텐츠
+
+| 메서드 | 설명 |
+|--------|------|
+| `load_page_chunk(page_id)` | 페이지 전체 콘텐츠 로드 |
+| `get_backlinks(block_id)` | 백링크 조회 |
+| `detect_language(page_id)` | 페이지 언어 감지 |
+
+### 쓰기 (트랜잭션)
+
+| 메서드 | 설명 |
+|--------|------|
+| `save_transactions(operations)` | 구조적 쓰기 (행 생성, 속성 설정) |
+| `save_transactions_fanout(operations)` | 콘텐츠 쓰기 (텍스트 편집) |
+| `create_db_row(collection_id)` | DB 행 생성 (편의 메서드) |
+
+### 워크스페이스
+
+| 메서드 | 설명 |
+|--------|------|
+| `get_space_usage()` | 블록 사용량 통계 |
+| `get_bots()` | Integration/봇 목록 |
+| `search_integrations(query)` | Integration 검색 |
+
+## 프로젝트 구조
+
+```
+notion-native-toolkit/
+  src/notion_native_toolkit/
+    __init__.py          # NotionToolkit 내보내기
+    toolkit.py           # 프로필 기반 통합 진입점
+    client.py            # 공식 API 클라이언트 (v1)
+    internal.py          # 내부 API 클라이언트 (v3) + 자동 로그인
+    browser.py           # Playwright 브라우저 자동화
+    profiles.py          # 워크스페이스 프로필 관리
+    credentials.py       # Keychain/환경변수 자격 증명
+    cli.py               # CLI 인터페이스
+    markdown.py          # 마크다운 ↔ Notion 블록 변환
+    writer.py            # Notion 페이지 작성기
+    deploy.py            # 디렉토리 → Notion 계층 배포
+    mapping.py           # 페이지 매핑 (idempotent 배포)
+    resolver.py          # 크로스 링크 해결
+    forms.py             # 폼/템플릿 처리
+  tests/
+    test_internal.py              # 내부 API 유닛 테스트 (25개)
+    test_internal_integration.py  # 내부 API integration 테스트 (18개)
+    test_*.py                     # 기타 유닛 테스트 (81개)
+  docs/
+    internal-api-capture.md       # 90+ 내부 API 캡처 문서
+    notion-toolkit-guidelines.md  # 운영 가이드
+```
+
+## 참고 사항
+
+- 프로젝트별 비즈니스 로직은 해당 프로젝트에, Notion I/O는 이 툴킷에 유지하세요.
+- 비밀 정보는 절대 코드에 커밋하지 마세요. 환경 변수 또는 Keychain을 사용하세요.
+- 내부 API 엔드포인트는 비공식이며 사전 고지 없이 변경될 수 있습니다. Integration 테스트가 변경을 감지합니다.
+- 브라우저 셀렉터는 Notion UI 변경 시 업데이트가 필요할 수 있습니다.
+- 전체 내부 API 엔드포인트 문서: `docs/internal-api-capture.md`

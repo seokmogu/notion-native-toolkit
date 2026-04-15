@@ -468,6 +468,312 @@ class NotionInternalClient:
         result = self.save_transactions(ops, user_action="sdk.createDbRow")
         return block_id if result is not None else None
 
+    # --- Database Automations ---
+
+    def _resolve_collection_id(self, database_id: str) -> str:
+        """Resolve a DB identifier to its collection ID.
+
+        Notion databases have two IDs: a block id (visible in URLs) and an
+        underlying collection id where automations actually live. Accepts
+        either; returns the collection id.
+        """
+        # Try as a collection first.
+        resp = self._post(
+            "syncRecordValuesSpaceInitial",
+            {
+                "requests": [
+                    {
+                        "pointer": {
+                            "id": database_id,
+                            "table": "collection",
+                            "spaceId": self.space_id,
+                        },
+                        "version": -1,
+                    }
+                ]
+            },
+        ) or {}
+        entry = (
+            (resp.get("recordMap") or {}).get("collection") or {}
+        ).get(database_id) or {}
+        if (entry.get("value") or {}).get("value"):
+            return database_id
+
+        # Fall back to resolving via block.
+        resp = self._post(
+            "syncRecordValuesSpaceInitial",
+            {
+                "requests": [
+                    {
+                        "pointer": {
+                            "id": database_id,
+                            "table": "block",
+                            "spaceId": self.space_id,
+                        },
+                        "version": -1,
+                    }
+                ]
+            },
+        ) or {}
+        block_entry = (
+            (resp.get("recordMap") or {}).get("block") or {}
+        ).get(database_id) or {}
+        block_value = (block_entry.get("value") or {}).get("value") or {}
+        cid = (
+            block_value.get("collection_id")
+            or (block_value.get("format") or {})
+            .get("collection_pointer", {})
+            .get("id")
+        )
+        if not cid:
+            raise ValueError(
+                f"Could not resolve collection id from {database_id!r}"
+            )
+        return cid
+
+    def list_database_automations(
+        self,
+        database_id: str,
+    ) -> list[dict[str, Any]]:
+        """Return automation records attached to a database.
+
+        ``database_id`` may be a block id (URL form) or a collection id.
+        Reads ``collection.format.automation_ids`` then fetches each
+        automation record via ``syncRecordValuesSpaceInitial``.
+        """
+        collection_id = self._resolve_collection_id(database_id)
+        coll_resp = self._post(
+            "syncRecordValuesSpaceInitial",
+            {
+                "requests": [
+                    {
+                        "pointer": {
+                            "id": collection_id,
+                            "table": "collection",
+                            "spaceId": self.space_id,
+                        },
+                        "version": -1,
+                    }
+                ]
+            },
+        ) or {}
+        record_map = coll_resp.get("recordMap", {}) or {}
+        coll_entry = (record_map.get("collection") or {}).get(collection_id) or {}
+        coll_value = (coll_entry.get("value") or {}).get("value") or {}
+        automation_ids: list[str] = (
+            (coll_value.get("format") or {}).get("automation_ids") or []
+        )
+
+        out: list[dict[str, Any]] = []
+        for aid in automation_ids:
+            resp = self._post(
+                "syncRecordValuesSpaceInitial",
+                {
+                    "requests": [
+                        {
+                            "pointer": {
+                                "id": aid,
+                                "table": "automation",
+                                "spaceId": self.space_id,
+                            },
+                            "version": -1,
+                        }
+                    ]
+                },
+            ) or {}
+            rm = resp.get("recordMap", {}) or {}
+            entry = (rm.get("automation") or {}).get(aid) or {}
+            val = (entry.get("value") or {}).get("value") or {}
+            if val:
+                out.append(val)
+        return out
+
+    def create_database_webhook_automation(
+        self,
+        database_id: str,
+        webhook_url: str,
+        *,
+        name: str | None = None,
+        trigger: str = "pages_added",
+        api_version: str = "2026-03-11",
+    ) -> str | None:
+        """Create a DB automation that POSTs to ``webhook_url`` on a trigger.
+
+        Args:
+            database_id: Collection (database) UUID.
+            webhook_url: HTTP(S) endpoint to receive the webhook POST.
+            name: Optional automation name; Notion defaults it otherwise.
+            trigger: One of ``"pages_added"`` (default: fires on new page)
+                or ``"page_props_any"`` (fires on any property edit).
+            api_version: ``config.apiVersion`` field sent with the action.
+
+        Returns: The new automation UUID, or None on failure.
+        """
+        # @MX:NOTE: Payload shape captured from Notion's web client
+        # (collectionSettingsAutomationsActions.createDatabaseAutomation).
+        # Requires the metadata update ops at the end — Notion validates
+        # automation.last_edited_by_id matches the request's actor.
+        collection_id = self._resolve_collection_id(database_id)
+        automation_id = str(uuid.uuid4())
+        action_id = str(uuid.uuid4())
+        trigger_uuid = str(uuid.uuid4())
+        now_ms = int(time.time() * 1000)
+
+        collection_ptr = {
+            "id": collection_id,
+            "table": "collection",
+            "spaceId": self.space_id,
+        }
+        event: dict[str, Any] = {
+            "pagesAdded": trigger == "pages_added",
+            "pagePropertiesEdited": (
+                {"type": "any"} if trigger == "page_props_any"
+                else {"type": "none"}
+            ),
+            "source": {"pointer": collection_ptr, "type": "collection"},
+        }
+        properties = {"name": name} if name else {}
+
+        ops: list[dict[str, Any]] = [
+            {
+                "pointer": collection_ptr,
+                "path": ["format", "automation_ids"],
+                "command": "listAfter",
+                "args": {"id": automation_id},
+            },
+            {
+                "pointer": {
+                    "table": "automation_action",
+                    "id": action_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "set",
+                "args": {
+                    "id": action_id,
+                    "type": "http_request",
+                    "parent_id": automation_id,
+                    "parent_table": "automation",
+                    "alive": True,
+                    "space_id": self.space_id,
+                    "config": {
+                        "apiVersion": api_version,
+                        "url": webhook_url,
+                    },
+                    "blocks": [],
+                },
+            },
+            {
+                "pointer": {
+                    "id": automation_id,
+                    "table": "automation",
+                    "spaceId": self.space_id,
+                },
+                "path": ["action_ids"],
+                "command": "listAfter",
+                "args": {"id": action_id},
+            },
+            {
+                "pointer": {
+                    "table": "automation",
+                    "id": automation_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "set",
+                "args": {
+                    "action_ids": [action_id],
+                    "alive": True,
+                    "id": automation_id,
+                    "parent_id": collection_id,
+                    "parent_table": "collection",
+                    "properties": properties,
+                    "space_id": self.space_id,
+                    "status": "active",
+                    "trigger": {
+                        "id": trigger_uuid,
+                        "type": "event",
+                        "event": event,
+                    },
+                },
+            },
+            # Metadata ops: Notion rejects with "last_edited_by is not the actor"
+            # unless the collection + automation carry the current user id.
+            {
+                "pointer": collection_ptr,
+                "path": [],
+                "command": "update",
+                "args": {
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            },
+            {
+                "pointer": {
+                    "table": "automation",
+                    "id": automation_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "created_by_id": self.user_id,
+                    "created_by_table": "notion_user",
+                    "created_time": now_ms,
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            },
+        ]
+        # Optional: update the DB block's last_edited too (if caller passed a
+        # block id, not a collection id). Harmless when database_id == collection_id.
+        if database_id != collection_id:
+            ops.append({
+                "pointer": {
+                    "table": "block",
+                    "id": database_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            })
+        result = self.save_transactions_fanout(
+            ops, user_action="sdk.createDatabaseAutomation",
+        )
+        return automation_id if result is not None else None
+
+    def delete_database_automation(self, automation_id: str) -> bool:
+        """Soft-delete a database automation (sets ``alive: false``)."""
+        now_ms = int(time.time() * 1000)
+        ops: list[dict[str, Any]] = [
+            {
+                "pointer": {
+                    "table": "automation",
+                    "id": automation_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "alive": False,
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            }
+        ]
+        result = self.save_transactions_fanout(
+            ops, user_action="sdk.deleteDatabaseAutomation",
+        )
+        return result is not None
+
     # --- Authentication ---
 
     @classmethod

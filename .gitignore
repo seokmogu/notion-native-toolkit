@@ -12,3 +12,5 @@ src/*.egg-info/
 .env
 .config/
 browser-state/
+.omc/
+docs/*-capture*.json

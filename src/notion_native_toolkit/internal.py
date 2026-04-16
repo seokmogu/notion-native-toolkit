@@ -749,6 +749,169 @@ class NotionInternalClient:
         )
         return automation_id if result is not None else None
 
+    # --- Guest invite (Share modal flow) ---
+
+    def invite_guest_to_block(
+        self,
+        block_id: str,
+        email: str,
+        *,
+        role: str = "editor",
+    ) -> str | None:
+        """Invite an external user as a guest to a block.
+
+        Replicates the Share modal flow captured from Notion's web client:
+          1. POST /createEmailUser → invitee user id
+          2. POST /saveTransactionsFanout with three ops:
+             - create invite record (``table=invite``)
+             - setPermissionItem on the block (``permissions`` path)
+             - update block last_edited metadata
+
+        Args:
+            block_id: Target block (page/database) UUID.
+            email: Guest email to invite.
+            role: Permission level — ``"editor"``, ``"reader"``, or
+                ``"comment_only"``.
+
+        Returns: The generated invite UUID on success, else ``None``.
+
+        Known limitation: some Enterprise workspaces (e.g. ones that
+        disallow self-serve signups) reject ``createEmailUser`` and
+        ``findUser`` when called without the Share modal's UI warm-up
+        chain (``getPageVisitors``, ``listAIConnectors``,
+        ``getAllSpacePermissionGroupsWithMemberCount``, etc.) in the
+        same session. If that happens, the server returns HTTP 400 with
+        ``UserValidationError: Signup is not allowed``. In that case,
+        fall back to the Playwright-driven Share modal flow or capture
+        the Workspace Settings → Members → Invite guest path (which
+        uses ``inviteGuestsToSpace``).
+        """
+        # @MX:NOTE: Payload captured from Share modal → "공유하기" flow.
+        # The web client calls findUser + listUsers before createEmailUser;
+        # the server rejects bare createEmailUser with "Signup is not allowed"
+        # unless those lookups happened first in the same session.
+        existing = self._post("findUser", {"email": email}) or {}
+        invitee_id = (
+            existing.get("user_id")
+            or existing.get("userId")
+            or existing.get("id")
+        )
+        if not invitee_id:
+            rm = existing.get("recordMap") or {}
+            users = rm.get("notion_user") or {}
+            if users:
+                invitee_id = next(iter(users.keys()))
+
+        if not invitee_id:
+            self._post(
+                "listUsers",
+                {
+                    "limit": 10,
+                    "query": email,
+                    "spaceId": self.space_id,
+                    "includeAliasSearch": True,
+                },
+            )
+            # Re-check via findUser after listUsers primed server state.
+            existing = self._post("findUser", {"email": email}) or {}
+            invitee_id = (
+                existing.get("user_id")
+                or existing.get("userId")
+                or existing.get("id")
+            )
+            if not invitee_id:
+                rm = existing.get("recordMap") or {}
+                users = rm.get("notion_user") or {}
+                if users:
+                    invitee_id = next(iter(users.keys()))
+
+        if not invitee_id:
+            user_resp = self._post(
+                "createEmailUser",
+                {
+                    "email": email,
+                    "preferredLocaleOrigin": "inferred_from_inviter",
+                    "preferredLocale": "en-US",
+                },
+            ) or {}
+            invitee_id = (
+                user_resp.get("user_id")
+                or user_resp.get("userId")
+                or user_resp.get("id")
+            )
+            if not invitee_id:
+                rm = user_resp.get("recordMap") or {}
+                users = rm.get("notion_user") or {}
+                if users:
+                    invitee_id = next(iter(users.keys()))
+        if not invitee_id:
+            return None
+
+        invite_id = str(uuid.uuid4())
+        flow_id = str(uuid.uuid4())
+        now_ms = int(time.time() * 1000)
+
+        permission = {
+            "type": "user_permission",
+            "role": role,
+            "user_id": invitee_id,
+            "invite_id": invite_id,
+        }
+        block_ptr = {
+            "id": block_id,
+            "table": "block",
+            "spaceId": self.space_id,
+        }
+        ops: list[dict[str, Any]] = [
+            {
+                "pointer": {
+                    "table": "invite",
+                    "id": invite_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "id": invite_id,
+                    "version": 1,
+                    "flow_id": flow_id,
+                    "space_id": self.space_id,
+                    "target_id": block_id,
+                    "target_table": "block",
+                    "inviter_id": self.user_id,
+                    "inviter_table": "notion_user",
+                    "invitee_id": invitee_id,
+                    "invitee_table_or_group": "notion_user",
+                    "message": "",
+                    "created_time": now_ms,
+                    "attributes": {
+                        "permission": permission,
+                        "origin_type": "share_menu",
+                    },
+                },
+            },
+            {
+                "pointer": block_ptr,
+                "path": ["permissions"],
+                "command": "setPermissionItem",
+                "args": permission,
+            },
+            {
+                "pointer": block_ptr,
+                "path": [],
+                "command": "update",
+                "args": {
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            },
+        ]
+        result = self.save_transactions_fanout(
+            ops, user_action="permissionsActions.savePermissionItems"
+        )
+        return invite_id if result is not None else None
+
     def delete_database_automation(self, automation_id: str) -> bool:
         """Soft-delete a database automation (sets ``alive: false``)."""
         now_ms = int(time.time() * 1000)

@@ -4,8 +4,20 @@ Items flagged for future iteration but not yet implemented.
 
 ## Guest invite via internal API
 
-**Status**: payload capture attempted but Share modal's primary button could
-not be clicked reliably by current selectors in `scripts/capture_guest_invite.py`.
+**Status**: payload captured and `NotionInternalClient.invite_guest_to_block`
+implemented. **Blocked by Enterprise workspace policy** — direct API calls
+to `findUser`, `createEmailUser` return HTTP 400
+`UserValidationError: Signup is not allowed` unless issued mid-Share-modal
+session (with warm-up calls like `getPageVisitors`,
+`getAllSpacePermissionGroupsWithMemberCount` preceding).
+
+**Workarounds to try next**:
+1. Capture `inviteGuestsToSpace` via Workspace Settings → Members → Invite
+   guest (different code path, may bypass Share-modal-only restriction).
+2. Pre-send the warm-up request sequence before `findUser` and see if that
+   satisfies the server's UI-context gate.
+3. Keep Playwright Share-modal automation in guest-automation as the
+   invite step (less elegant, but works today).
 
 **Goal**: add `NotionInternalClient.invite_guests_to_space(block_id, emails,
 role="reader")` so guest-automation and future callers can invite guests

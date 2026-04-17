@@ -78,6 +78,7 @@ def main() -> int:
                 "method": req.method,
                 "url": req.url,
                 "post_data": req.post_data,
+                "headers": dict(req.headers),
             })
 
     def on_res(res) -> None:

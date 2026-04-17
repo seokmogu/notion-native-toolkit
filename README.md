@@ -526,6 +526,7 @@ notion-native-toolkit/
     mapping.py           # 페이지 매핑 (idempotent 배포)
     resolver.py          # 크로스 링크 해결
     forms.py             # 폼/템플릿 처리
+    mcp_server.py        # MCP 서버 (Claude Code 연동)
   tests/
     test_internal.py              # 내부 API 유닛 테스트 (25개)
     test_internal_integration.py  # 내부 API integration 테스트 (18개)
@@ -534,6 +535,140 @@ notion-native-toolkit/
     internal-api-capture.md       # 90+ 내부 API 캡처 문서
     notion-toolkit-guidelines.md  # 운영 가이드
 ```
+
+## MCP 서버 (Claude Code / AI 에이전트 연동)
+
+Notion 내부 API를 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 서버로 제공합니다. Claude Code, Cursor 등 MCP 지원 도구에서 Notion AI, 검색, 사용량 조회를 바로 사용할 수 있습니다.
+
+### 제공 도구
+
+| Tool | 설명 |
+|------|------|
+| `notion_ai_models` | 워크스페이스에서 사용 가능한 AI 모델 목록 |
+| `notion_ai_usage` | AI 크레딧 사용량 및 잔여량 |
+| `notion_ai_ask` | Notion AI에 질문하고 응답 받기 (스트리밍) |
+| `notion_ai_agents` | 워크스페이스 커스텀 AI 에이전트 목록 |
+| `notion_ai_connectors` | AI 연동 목록 (Slack, Calendar 등) |
+| `notion_search` | 워크스페이스 풀텍스트 검색 |
+
+### 설정
+
+**1단계: 환경변수 설정**
+
+```bash
+# 필수 - 워크스페이스 ID
+export NOTION_SPACE_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+
+# 아래 중 하나 선택:
+
+# (A) cookies.json 자동 로드 (Playwright 쿠키 동기화 사용 시 - 권장)
+# ~/.chrome-automation-profile/cookies.json 에서 token_v2 자동 추출
+# 별도 설정 불필요
+
+# (B) 환경변수 직접 지정
+export NOTION_TOKEN_V2='<token_v2 쿠키값>'
+export NOTION_USER_ID='<user_id 쿠키값>'   # 선택사항
+```
+
+**2단계: MCP 설정 (`.mcp.json` 또는 Claude Code settings)**
+
+```json
+{
+  "mcpServers": {
+    "notion-internal": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/notion-native-toolkit", "python", "-m", "notion_native_toolkit.mcp_server"],
+      "env": {
+        "NOTION_SPACE_ID": "your-space-id-here"
+      }
+    }
+  }
+}
+```
+
+또는 패키지 설치 후 CLI로 실행:
+
+```json
+{
+  "mcpServers": {
+    "notion-internal": {
+      "command": "notion-mcp",
+      "env": {
+        "NOTION_SPACE_ID": "your-space-id-here"
+      }
+    }
+  }
+}
+```
+
+### 인증 우선순위
+
+1. `NOTION_TOKEN_V2` 환경변수 (명시 지정)
+2. `~/.chrome-automation-profile/cookies.json` (Playwright 동기화)
+3. `NOTION_COOKIES_PATH` 환경변수로 쿠키 파일 경로 커스텀 가능
+
+### 인증 트러블슈팅
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| `Notion 인증을 찾을 수 없습니다` | token_v2 없음 | 아래 "token_v2 획득 방법" 참조 |
+| `NOTION_SPACE_ID가 설정되지 않았습니다` | 환경변수 누락 | `export NOTION_SPACE_ID='...'` 설정 |
+| `HTTP 401` / `HTTP 403` | token_v2 만료 (약 1년 유효) | 브라우저에서 Notion 재로그인 후 쿠키 재동기화 |
+| `HTTP 429` | Rate limit | 자동 재시도됨 (최대 3회). 빈번하면 `rate_limit` 값 증가 |
+| `Search failed` / `None` 응답 | space_id 불일치 | 올바른 워크스페이스 ID인지 확인 |
+| `Stream HTTP 4xx on runInferenceTranscript` | AI 크레딧 소진 또는 플랜 미지원 | `notion_ai_usage` 도구로 잔여 크레딧 확인 |
+
+**token_v2 획득 방법:**
+
+```bash
+# 방법 1: 자동 로그인 (권장)
+notion-native login
+
+# 방법 2: Chrome DevTools
+# 1) Chrome에서 notion.so 접속
+# 2) F12 → Application → Cookies → notion.so
+# 3) token_v2 값 복사
+# 4) export NOTION_TOKEN_V2='복사한값'
+
+# 방법 3: Playwright 쿠키 동기화 스크립트 사용
+# cookies.json이 자동 갱신되면 별도 작업 불필요
+```
+
+**space_id 확인 방법:**
+
+```bash
+# 방법 1: Notion Settings → ... (워크스페이스 이름 옆) → Copy space ID
+# 방법 2: Chrome DevTools Network 탭에서 아무 API 호출의 spaceId 필드 확인
+# 방법 3: notion-native 프로필에 이미 저장된 경우
+cat ~/.config/notion-native-toolkit/workspaces.json | grep space_id
+```
+
+## Claude Code 스킬 사용법
+
+MCP 서버 외에, Claude Code에서 슬래시 커맨드로 직접 호출할 수도 있습니다.
+
+### 설치
+
+`.claude/skills/notion-native-toolkit/SKILL.md`가 프로젝트에 포함되어 있으면 자동 인식됩니다.
+
+### 사용 예시
+
+```
+# Notion AI에 질문
+/notion-native-toolkit <space_id> 한국의 수도는?
+
+# "Gemini 모델로 요약해줘" 같은 자연어도 가능 — Claude가 키워드 트리거로 자동 호출
+"notion ai로 이 문서 요약해줘"
+```
+
+### MCP vs 스킬 선택 가이드
+
+| 상황 | 추천 |
+|------|------|
+| Claude Code에서 빠르게 호출 | `/notion-native-toolkit` 스킬 |
+| Cursor, Windsurf 등 다른 도구 사용 | MCP 서버 |
+| 에이전트가 자동으로 Notion 도구 호출 | MCP 서버 (tool discovery) |
+| space_id 고정 + 반복 작업 | MCP 서버 (env에 설정해두면 편함) |
 
 ## 참고 사항
 

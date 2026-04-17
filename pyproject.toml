@@ -12,11 +12,13 @@ dependencies = [
   "httpx>=0.27,<1",
   "mistletoe>=1.3,<2",
   "playwright>=1.52,<2",
+  "mcp>=1.0,<2",
 ]
 
 [project.scripts]
 notion-push = "notion_native_toolkit.cli:main"
 notion-native = "notion_native_toolkit.cli:main"
+notion-mcp = "notion_native_toolkit.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

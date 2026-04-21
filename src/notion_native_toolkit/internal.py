@@ -479,7 +479,7 @@ class NotionInternalClient:
         """
         # Try as a collection first.
         resp = self._post(
-            "syncRecordValuesSpaceInitial",
+            "syncRecordValuesMain",
             {
                 "requests": [
                     {
@@ -501,7 +501,7 @@ class NotionInternalClient:
 
         # Fall back to resolving via block.
         resp = self._post(
-            "syncRecordValuesSpaceInitial",
+            "syncRecordValuesMain",
             {
                 "requests": [
                     {
@@ -543,7 +543,7 @@ class NotionInternalClient:
         """
         collection_id = self._resolve_collection_id(database_id)
         coll_resp = self._post(
-            "syncRecordValuesSpaceInitial",
+            "syncRecordValuesMain",
             {
                 "requests": [
                     {
@@ -567,7 +567,7 @@ class NotionInternalClient:
         out: list[dict[str, Any]] = []
         for aid in automation_ids:
             resp = self._post(
-                "syncRecordValuesSpaceInitial",
+                "syncRecordValuesMain",
                 {
                     "requests": [
                         {
@@ -748,6 +748,296 @@ class NotionInternalClient:
             ops, user_action="sdk.createDatabaseAutomation",
         )
         return automation_id if result is not None else None
+
+    def create_database_add_page_automation(
+        self,
+        source_database_id: str,
+        target_database_id: str,
+        *,
+        title_text: str = "자동 생성",
+        name: str | None = None,
+        trigger: str = "pages_added",
+    ) -> str | None:
+        """Create a DB automation that adds a page to another database.
+
+        Mirrors the UI flow: ⚡ → 새 작업 → 페이지 추가 위치 → pick target DB →
+        set title text → 활성화. The created page's title column is filled
+        with ``title_text`` (literal). Additional property mappings must be
+        configured via Notion UI (the ``config.values`` shapes for Select/
+        People/Relation references are not yet captured here).
+
+        Args:
+            source_database_id: Source DB (trigger DB) — block or collection id.
+            target_database_id: Target DB where the new page is created.
+            title_text: Literal text written to the target page's title column.
+            name: Optional automation display name.
+            trigger: ``"pages_added"`` (default) or ``"page_props_any"``.
+
+        Returns: New automation UUID on success, else None.
+        """
+        # @MX:NOTE: Payload captured 2026-04-21 via automate_add_page_capture.py
+        # (action type "create_page", config.target.collection pointer +
+        # config.values.title with simple text).
+        source_coll = self._resolve_collection_id(source_database_id)
+        target_coll = self._resolve_collection_id(target_database_id)
+        automation_id = str(uuid.uuid4())
+        action_id = str(uuid.uuid4())
+        trigger_uuid = str(uuid.uuid4())
+        now_ms = int(time.time() * 1000)
+
+        source_ptr = {
+            "id": source_coll,
+            "table": "collection",
+            "spaceId": self.space_id,
+        }
+        target_ptr = {
+            "table": "collection",
+            "id": target_coll,
+            "spaceId": self.space_id,
+        }
+        event: dict[str, Any] = {
+            "pagesAdded": trigger == "pages_added",
+            "pagePropertiesEdited": (
+                {"type": "any"} if trigger == "page_props_any"
+                else {"type": "none"}
+            ),
+            "source": {"pointer": source_ptr, "type": "collection"},
+        }
+        properties = {"name": name} if name else {}
+
+        action_config: dict[str, Any] = {
+            "target": {"collection": target_ptr, "type": "collection"},
+            "collection": target_ptr,
+            "properties": ["title"],
+            "values": {
+                "title": {
+                    "action": "replace",
+                    "value": {
+                        "type": "simple",
+                        "value": [[title_text]],
+                    },
+                }
+            },
+        }
+
+        ops: list[dict[str, Any]] = [
+            {
+                "pointer": source_ptr,
+                "path": ["format", "automation_ids"],
+                "command": "listAfter",
+                "args": {"id": automation_id},
+            },
+            {
+                "pointer": {
+                    "table": "automation_action",
+                    "id": action_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "set",
+                "args": {
+                    "id": action_id,
+                    "type": "create_page",
+                    "parent_id": automation_id,
+                    "parent_table": "automation",
+                    "alive": True,
+                    "space_id": self.space_id,
+                    "config": action_config,
+                    "blocks": [],
+                },
+            },
+            {
+                "pointer": {
+                    "id": automation_id,
+                    "table": "automation",
+                    "spaceId": self.space_id,
+                },
+                "path": ["action_ids"],
+                "command": "listAfter",
+                "args": {"id": action_id},
+            },
+            {
+                "pointer": {
+                    "table": "automation",
+                    "id": automation_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "set",
+                "args": {
+                    "action_ids": [action_id],
+                    "alive": True,
+                    "id": automation_id,
+                    "parent_id": source_coll,
+                    "parent_table": "collection",
+                    "properties": properties,
+                    "space_id": self.space_id,
+                    "status": "active",
+                    "trigger": {
+                        "id": trigger_uuid,
+                        "type": "event",
+                        "event": event,
+                    },
+                },
+            },
+            {
+                "pointer": source_ptr,
+                "path": [],
+                "command": "update",
+                "args": {
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            },
+            {
+                "pointer": {
+                    "table": "automation",
+                    "id": automation_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "created_by_id": self.user_id,
+                    "created_by_table": "notion_user",
+                    "created_time": now_ms,
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            },
+        ]
+        if source_database_id != source_coll:
+            ops.append({
+                "pointer": {
+                    "table": "block",
+                    "id": source_database_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            })
+        result = self.save_transactions_fanout(
+            ops, user_action="sdk.createAddPageAutomation",
+        )
+        return automation_id if result is not None else None
+
+    def deactivate_database_automation(
+        self,
+        database_id: str,
+        automation_id: str,
+    ) -> bool:
+        """Deactivate (soft-delete) an existing DB automation.
+
+        Removes ``automation_id`` from ``collection.format.automation_ids`` and
+        marks the automation + its actions ``alive=false``. Existing records
+        are preserved; only the active binding is removed.
+
+        Args:
+            database_id: Source DB (block or collection id).
+            automation_id: UUID of the automation to deactivate.
+
+        Returns: True on success, False otherwise.
+        """
+        collection_id = self._resolve_collection_id(database_id)
+        now_ms = int(time.time() * 1000)
+
+        # Fetch the automation record to list its action_ids
+        resp = self._post(
+            "syncRecordValuesMain",
+            {
+                "requests": [{
+                    "pointer": {
+                        "id": automation_id,
+                        "table": "automation",
+                        "spaceId": self.space_id,
+                    },
+                    "version": -1,
+                }]
+            },
+        ) or {}
+        rm = resp.get("recordMap", {}) or {}
+        entry = (rm.get("automation") or {}).get(automation_id) or {}
+        val = (entry.get("value") or {}).get("value") or {}
+        action_ids: list[str] = val.get("action_ids") or []
+
+        ops: list[dict[str, Any]] = [
+            {
+                "pointer": {
+                    "id": collection_id,
+                    "table": "collection",
+                    "spaceId": self.space_id,
+                },
+                "path": ["format", "automation_ids"],
+                "command": "listRemove",
+                "args": {"id": automation_id},
+            },
+            {
+                "pointer": {
+                    "id": automation_id,
+                    "table": "automation",
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "alive": False,
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            },
+            {
+                "pointer": {
+                    "id": collection_id,
+                    "table": "collection",
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            },
+        ]
+        for aid in action_ids:
+            ops.append({
+                "pointer": {
+                    "id": aid,
+                    "table": "automation_action",
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {"alive": False},
+            })
+        if database_id != collection_id:
+            ops.append({
+                "pointer": {
+                    "table": "block",
+                    "id": database_id,
+                    "spaceId": self.space_id,
+                },
+                "path": [],
+                "command": "update",
+                "args": {
+                    "last_edited_time": now_ms,
+                    "last_edited_by_id": self.user_id,
+                    "last_edited_by_table": "notion_user",
+                },
+            })
+        result = self.save_transactions_fanout(
+            ops, user_action="sdk.deactivateDatabaseAutomation",
+        )
+        return result is not None
 
     # --- Guest invite (Share modal flow) ---
 

@@ -275,6 +275,47 @@ bots = client.get_bots()
 integrations = client.search_integrations("slack")
 ```
 
+#### 데이터베이스 자동화 (DB Automation)
+
+Notion UI의 `⚡ 자동화` 기능을 내부 API로 생성/삭제합니다. 두 종류의 액션을 지원합니다.
+
+```python
+# 1) Webhook 자동화 — 트리거 시 HTTP POST
+webhook_auto_id = client.create_database_webhook_automation(
+    database_id="33f7d832-...",       # source DB (block id)
+    webhook_url="https://hooks.slack.com/...",
+    name="신규 신청 Slack 알림",
+    trigger="pages_added",             # or "page_props_any"
+)
+
+# 2) Page-creation 자동화 — 트리거 시 다른 DB에 페이지 추가
+#    config.values 중 title(simple text)만 현재 지원.
+#    Select/Relation/People 매핑은 UI에서 추가 필요.
+add_page_auto_id = client.create_database_add_page_automation(
+    source_database_id="33f7d832-...",  # 트리거 DB
+    target_database_id="33f7d832-...",  # 새 페이지가 만들어질 DB
+    title_text="신규 신청 접수",         # 새 페이지 title 컬럼 고정 텍스트
+    name="신청→관리 자동 연동",
+    trigger="pages_added",
+)
+
+# 목록 조회
+for a in client.list_database_automations("33f7d832-..."):
+    print(a["id"], a.get("status"), a.get("action_ids"))
+
+# 비활성화 (soft-delete — automation_ids 리스트에서 제거 + alive=false)
+client.deactivate_database_automation(
+    database_id="33f7d832-...",
+    automation_id=webhook_auto_id,
+)
+```
+
+내부적으로 `collectionSettingsAutomationsActions.createDatabaseAutomation`
+payload를 그대로 사용하며, `automation` / `automation_action` / `collection`
+테이블에 대한 `saveTransactionsFanout` 트랜잭션으로 생성·갱신합니다.
+캡처 기록: `docs/automation-webhook-capture.json`,
+`docs/automation-add-page-capture.json`.
+
 ## 자동 로그인 (token_v2 발급)
 
 내부 API는 브라우저 세션 쿠키(`token_v2`)로 인증합니다. 이 SDK는 Playwright를 사용해 로그인을 자동화합니다.

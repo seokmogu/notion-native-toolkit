@@ -121,6 +121,9 @@ async def create_form_view(
         "args": {
             "id": form_block_id,
             "type": "form",
+            "parent_id": view_id,
+            "parent_table": "collection_view",
+            "alive": True,
             "permissions": [
                 {
                     "type": "space_permission",
@@ -147,6 +150,12 @@ async def create_form_view(
             "space_id": ctx.space_id,
             "parent_table": "block",
             "parent_id": form_block_id,
+            "created_time": ts,
+            "created_by_id": ctx.user_id,
+            "created_by_table": "notion_user",
+            "last_edited_time": ts,
+            "last_edited_by_id": ctx.user_id,
+            "last_edited_by_table": "notion_user",
             "modules": {
                 "form_layout_schema": [
                     {"id": _random_module_id(), "type": "cover"},

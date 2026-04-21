@@ -30,29 +30,59 @@ APP_DB = "33f7d832-2b04-818e-8919-cf8760e8782c"
 MGT_DB = "33f7d832-2b04-8118-8a2d-da3f70b00b62"
 HIS_DB = "33f7d832-2b04-81b8-8548-fb144bd39c89"
 
+# Property IDs (from `collection.schema` dump, 2026-04-21)
+# MGT_DB properties:
+MGT_STATUS = "hcOM"    # 현재 상태 (select)
+
+# HIS_DB properties:
+# Run this to refresh:
+#   python -c "from playwright.sync_api import sync_playwright; ..."
+HIS_EVENT_TYPE = None  # populated lazily (see schema fetch)
+
 RULES = [
-    {"id": "AUTO-1", "name": "AUTO-1 신청→관리(skeleton)",
+    {"id": "AUTO-1", "name": "AUTO-1 신청→관리",
      "source": APP_DB, "target": MGT_DB,
-     "title": "신규 신청 접수", "trigger": "pages_added"},
-    {"id": "AUTO-2", "name": "AUTO-2 신청→이력 신청 이벤트(skeleton)",
+     "title": "신규 신청 접수", "trigger": "pages_added",
+     "selects": {MGT_STATUS: "신청중"}},
+    {"id": "AUTO-2", "name": "AUTO-2 신청→이력 신청 이벤트",
      "source": APP_DB, "target": HIS_DB,
-     "title": "신청 이벤트", "trigger": "pages_added"},
-    {"id": "AUTO-3", "name": "AUTO-3 관리→이력 배정(skeleton)",
+     "title": "신청 이벤트", "trigger": "pages_added",
+     "selects": {"EVENT_TYPE": "신청"}},  # resolved at runtime
+    {"id": "AUTO-3", "name": "AUTO-3 관리→이력 배정",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "배정 이벤트", "trigger": "page_props_any"},
-    {"id": "AUTO-4", "name": "AUTO-4 관리→이력 반려(skeleton)",
+     "title": "배정 이벤트", "trigger": "page_props_any",
+     "selects": {"EVENT_TYPE": "배정"}},
+    {"id": "AUTO-4", "name": "AUTO-4 관리→이력 반려",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "반려 이벤트", "trigger": "page_props_any"},
-    {"id": "AUTO-5", "name": "AUTO-5 관리→이력 중지(skeleton)",
+     "title": "반려 이벤트", "trigger": "page_props_any",
+     "selects": {"EVENT_TYPE": "반려"}},
+    {"id": "AUTO-5", "name": "AUTO-5 관리→이력 중지",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "중지 이벤트", "trigger": "page_props_any"},
-    {"id": "AUTO-6", "name": "AUTO-6 관리→이력 재활성(skeleton)",
+     "title": "중지 이벤트", "trigger": "page_props_any",
+     "selects": {"EVENT_TYPE": "중지"}},
+    {"id": "AUTO-6", "name": "AUTO-6 관리→이력 재활성",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "재활성 이벤트", "trigger": "page_props_any"},
-    {"id": "AUTO-7", "name": "AUTO-7 관리→이력 플랜변경(skeleton)",
+     "title": "재활성 이벤트", "trigger": "page_props_any",
+     "selects": {"EVENT_TYPE": "재활성"}},
+    {"id": "AUTO-7", "name": "AUTO-7 관리→이력 플랜변경",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "플랜변경 이벤트", "trigger": "page_props_any"},
+     "title": "플랜변경 이벤트", "trigger": "page_props_any",
+     "selects": {"EVENT_TYPE": "플랜변경"}},
 ]
+
+
+def resolve_his_event_type_prop_id(page) -> str:
+    """Look up HIS DB schema and find the property id for `이벤트 유형`."""
+    cid = resolve_collection_id(page, HIS_DB)
+    resp = fetch_via(page, "syncRecordValuesMain", {
+        "requests": [{"pointer": {"id": cid, "table": "collection", "spaceId": SPACE_ID}, "version": -1}]
+    })
+    schema = (resp.get("recordMap", {}).get("collection") or {}).get(cid, {})
+    schema = (schema.get("value") or {}).get("value", {}).get("schema", {})
+    for pid, spec in schema.items():
+        if spec.get("name") == "이벤트 유형":
+            return pid
+    raise RuntimeError("이벤트 유형 not found in HIS schema")
 
 
 JS_FETCH = """
@@ -96,7 +126,8 @@ def build_create_ops(
     title_text: str,
     name: str,
     trigger: str,
-) -> list[dict[str, Any]]:
+    selects: dict[str, str] | None = None,
+) -> tuple:
     auto_id = str(uuid.uuid4())
     action_id = str(uuid.uuid4())
     trigger_uuid = str(uuid.uuid4())
@@ -109,6 +140,16 @@ def build_create_ops(
         "pagePropertiesEdited": {"type": "any"} if trigger == "page_props_any" else {"type": "none"},
         "source": {"pointer": source_ptr, "type": "collection"},
     }
+    property_order: list[str] = ["title"]
+    values_map: dict[str, Any] = {
+        "title": {"action": "replace", "value": {"type": "simple", "value": [[title_text]]}}
+    }
+    for pid, opt in (selects or {}).items():
+        property_order.append(pid)
+        values_map[pid] = {
+            "action": "replace",
+            "value": {"type": "simple", "value": [[f'"{opt}"']]},
+        }
     ops = [
         {"pointer": source_ptr, "path": ["format", "automation_ids"],
          "command": "listAfter", "args": {"id": auto_id}},
@@ -121,8 +162,8 @@ def build_create_ops(
             "config": {
                 "target": {"collection": target_ptr, "type": "collection"},
                 "collection": target_ptr,
-                "properties": ["title"],
-                "values": {"title": {"action": "replace", "value": {"type": "simple", "value": [[title_text]]}}},
+                "properties": property_order,
+                "values": values_map,
             },
             "blocks": [],
         }},
@@ -231,10 +272,18 @@ def main() -> int:
             coll[b] = resolve_collection_id(page, b)
             print(f"  {k} {b} -> collection {coll[b]}")
 
+        # Resolve HIS event-type property id once
+        his_event_pid = resolve_his_event_type_prop_id(page)
+        print(f"  HIS 이벤트 유형 prop id: {his_event_pid}")
+
         print("\n== creating automations ==")
         created = []
         for rule in RULES:
             print(f"-- {rule['id']} {rule['name']} --")
+            # Resolve placeholder EVENT_TYPE prop id
+            selects = dict(rule.get("selects") or {})
+            if "EVENT_TYPE" in selects:
+                selects[his_event_pid] = selects.pop("EVENT_TYPE")
             ops, auto_id, action_id = build_create_ops(
                 source_coll=coll[rule["source"]],
                 source_block=rule["source"],
@@ -242,6 +291,7 @@ def main() -> int:
                 title_text=rule["title"],
                 name=rule["name"],
                 trigger=rule["trigger"],
+                selects=selects,
             )
             save_transactions(page, ops, "sdk.createAddPageAutomation")
             print(f"   OK automation_id={auto_id}")

@@ -755,21 +755,27 @@ class NotionInternalClient:
         target_database_id: str,
         *,
         title_text: str = "자동 생성",
+        selects: dict[str, str] | None = None,
         name: str | None = None,
         trigger: str = "pages_added",
     ) -> str | None:
         """Create a DB automation that adds a page to another database.
 
         Mirrors the UI flow: ⚡ → 새 작업 → 페이지 추가 위치 → pick target DB →
-        set title text → 활성화. The created page's title column is filled
-        with ``title_text`` (literal). Additional property mappings must be
-        configured via Notion UI (the ``config.values`` shapes for Select/
-        People/Relation references are not yet captured here).
+        set title text → 활성화. Supports literal Title and Select property
+        mappings. References to source-row properties (People / Relation /
+        copy from source) are NOT yet supported — configure those via
+        Notion's Automation UI after creation.
 
         Args:
             source_database_id: Source DB (trigger DB) — block or collection id.
             target_database_id: Target DB where the new page is created.
             title_text: Literal text written to the target page's title column.
+            selects: Optional ``{property_id: option_name}`` dict for literal
+                Select option assignments on the target page (e.g.,
+                ``{"hcOM": "신청중"}``). Property IDs are visible in
+                ``collection.schema``; the helper wraps option names in the
+                double-quoted form Notion requires for automation values.
             name: Optional automation display name.
             trigger: ``"pages_added"`` (default) or ``"page_props_any"``.
 
@@ -805,19 +811,29 @@ class NotionInternalClient:
         }
         properties = {"name": name} if name else {}
 
+        property_order: list[str] = ["title"]
+        values_map: dict[str, Any] = {
+            "title": {
+                "action": "replace",
+                "value": {"type": "simple", "value": [[title_text]]},
+            }
+        }
+        for pid, option_name in (selects or {}).items():
+            # @MX:NOTE: Notion's automation values for Select props wrap the
+            # option name in double quotes (captured via UI: hcOM -> \"신청중\").
+            property_order.append(pid)
+            values_map[pid] = {
+                "action": "replace",
+                "value": {
+                    "type": "simple",
+                    "value": [[f'"{option_name}"']],
+                },
+            }
         action_config: dict[str, Any] = {
             "target": {"collection": target_ptr, "type": "collection"},
             "collection": target_ptr,
-            "properties": ["title"],
-            "values": {
-                "title": {
-                    "action": "replace",
-                    "value": {
-                        "type": "simple",
-                        "value": [[title_text]],
-                    },
-                }
-            },
+            "properties": property_order,
+            "values": values_map,
         }
 
         ops: list[dict[str, Any]] = [

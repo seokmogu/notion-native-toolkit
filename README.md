@@ -289,12 +289,17 @@ webhook_auto_id = client.create_database_webhook_automation(
 )
 
 # 2) Page-creation 자동화 — 트리거 시 다른 DB에 페이지 추가
-#    config.values 중 title(simple text)만 현재 지원.
-#    Select/Relation/People 매핑은 UI에서 추가 필요.
+#    지원: title(simple text) + selects(고정 옵션) + source_refs(트리거 행 text/email 복사)
+#    미지원: People / Relation 매핑은 UI에서 설정 필요 (Notion formula 구문)
 add_page_auto_id = client.create_database_add_page_automation(
     source_database_id="33f7d832-...",  # 트리거 DB
     target_database_id="33f7d832-...",  # 새 페이지가 만들어질 DB
     title_text="신규 신청 접수",         # 새 페이지 title 컬럼 고정 텍스트
+    selects={"hcOM": "신청중"},          # {target_prop_id: option_name}
+    source_refs={                        # {target_prop_id: (source_prop_id, 표시이름)}
+        "mU@q": ("]aja", "소속"),        # target 소속 = 트리거 행 소속
+        "_e:N": ("=L~s", "계정 이메일"), # target 계정 이메일 = 트리거 행 계정 이메일
+    },
     name="신청→관리 자동 연동",
     trigger="pages_added",
 )

@@ -31,23 +31,32 @@ MGT_DB = "33f7d832-2b04-8118-8a2d-da3f70b00b62"
 HIS_DB = "33f7d832-2b04-81b8-8548-fb144bd39c89"
 
 # Property IDs (from `collection.schema` dump, 2026-04-21)
-# MGT_DB properties:
-MGT_STATUS = "hcOM"    # 현재 상태 (select)
-
-# HIS_DB properties:
-# Run this to refresh:
-#   python -c "from playwright.sync_api import sync_playwright; ..."
-HIS_EVENT_TYPE = None  # populated lazily (see schema fetch)
+# APP DB source properties:
+APP_PROP_EMAIL = "=L~s"     # 계정 이메일 (email)
+APP_PROP_SOSOK = "]aja"     # 소속 (text)
+APP_PROP_REASON = "{>Dk"    # 신청 사유 (text)
+# MGT DB target properties:
+MGT_PROP_STATUS = "hcOM"    # 현재 상태 (select)
+MGT_PROP_SOSOK = "mU@q"     # 소속 (text)
+MGT_PROP_EMAIL = "_e:N"     # 계정 이메일 (email)
+# HIS DB target properties:
+HIS_PROP_COMMENT = "GmE@"   # 코멘트 (text)
+HIS_EVENT_TYPE = None       # resolved at runtime
 
 RULES = [
     {"id": "AUTO-1", "name": "AUTO-1 신청→관리",
      "source": APP_DB, "target": MGT_DB,
      "title": "신규 신청 접수", "trigger": "pages_added",
-     "selects": {MGT_STATUS: "신청중"}},
+     "selects": {MGT_PROP_STATUS: "신청중"},
+     "source_refs": {
+         MGT_PROP_SOSOK: (APP_PROP_SOSOK, "소속"),
+         MGT_PROP_EMAIL: (APP_PROP_EMAIL, "계정 이메일"),
+     }},
     {"id": "AUTO-2", "name": "AUTO-2 신청→이력 신청 이벤트",
      "source": APP_DB, "target": HIS_DB,
      "title": "신청 이벤트", "trigger": "pages_added",
-     "selects": {"EVENT_TYPE": "신청"}},  # resolved at runtime
+     "selects": {"EVENT_TYPE": "신청"},
+     "source_refs": {HIS_PROP_COMMENT: (APP_PROP_REASON, "신청 사유")}},
     {"id": "AUTO-3", "name": "AUTO-3 관리→이력 배정",
      "source": MGT_DB, "target": HIS_DB,
      "title": "배정 이벤트", "trigger": "page_props_any",
@@ -127,6 +136,7 @@ def build_create_ops(
     name: str,
     trigger: str,
     selects: dict[str, str] | None = None,
+    source_refs: dict[str, tuple] | None = None,
 ) -> tuple:
     auto_id = str(uuid.uuid4())
     action_id = str(uuid.uuid4())
@@ -149,6 +159,29 @@ def build_create_ops(
         values_map[pid] = {
             "action": "replace",
             "value": {"type": "simple", "value": [[f'"{opt}"']]},
+        }
+    for pid, (src_pid, src_name) in (source_refs or {}).items():
+        property_order.append(pid)
+        values_map[pid] = {
+            "action": "replace",
+            "value": {
+                "type": "simple",
+                "value": [
+                    [
+                        "‣",
+                        [[
+                            "fpp",
+                            {
+                                "contextValueId": '{"global":"button_page","source":"global"}',
+                                "name": f"페이지 실행의 {src_name}",
+                                "property": src_pid,
+                                "valueSnapshot": "current",
+                            },
+                        ]],
+                    ],
+                    [" "],
+                ],
+            },
         }
     ops = [
         {"pointer": source_ptr, "path": ["format", "automation_ids"],
@@ -292,6 +325,7 @@ def main() -> int:
                 name=rule["name"],
                 trigger=rule["trigger"],
                 selects=selects,
+                source_refs=rule.get("source_refs") or {},
             )
             save_transactions(page, ops, "sdk.createAddPageAutomation")
             print(f"   OK automation_id={auto_id}")

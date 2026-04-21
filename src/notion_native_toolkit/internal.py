@@ -756,6 +756,7 @@ class NotionInternalClient:
         *,
         title_text: str = "자동 생성",
         selects: dict[str, str] | None = None,
+        source_refs: dict[str, tuple[str, str]] | None = None,
         name: str | None = None,
         trigger: str = "pages_added",
     ) -> str | None:
@@ -776,6 +777,12 @@ class NotionInternalClient:
                 ``{"hcOM": "신청중"}``). Property IDs are visible in
                 ``collection.schema``; the helper wraps option names in the
                 double-quoted form Notion requires for automation values.
+            source_refs: Optional ``{target_prop_id: (source_prop_id, source_prop_name)}``
+                mapping that copies the trigger-row value of ``source_prop_id``
+                into ``target_prop_id``. Works for text and email properties
+                (Notion renders the mention as "페이지 실행의 {source_prop_name}").
+                NOT supported for People / Relation — those require custom
+                formulas and must be configured via UI.
             name: Optional automation display name.
             trigger: ``"pages_added"`` (default) or ``"page_props_any"``.
 
@@ -827,6 +834,34 @@ class NotionInternalClient:
                 "value": {
                     "type": "simple",
                     "value": [[f'"{option_name}"']],
+                },
+            }
+        for pid, (src_pid, src_name) in (source_refs or {}).items():
+            # @MX:NOTE: Text/email source-row refs use the "fpp" formula
+            # annotation. Captured shape 2026-04-21 from UI drive of
+            # 소속/계정 이메일 mentions to "페이지 실행의 <prop>".
+            property_order.append(pid)
+            values_map[pid] = {
+                "action": "replace",
+                "value": {
+                    "type": "simple",
+                    "value": [
+                        [
+                            "‣",  # ‣
+                            [
+                                [
+                                    "fpp",
+                                    {
+                                        "contextValueId": '{"global":"button_page","source":"global"}',
+                                        "name": f"페이지 실행의 {src_name}",
+                                        "property": src_pid,
+                                        "valueSnapshot": "current",
+                                    },
+                                ]
+                            ],
+                        ],
+                        [" "],
+                    ],
                 },
             }
         action_config: dict[str, Any] = {

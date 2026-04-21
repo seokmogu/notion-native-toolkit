@@ -93,6 +93,7 @@ async def create_form_view(
     ctx: NotionInternalContext,
     referer: str,
     view_name: str = "양식 작성기",
+    title_question_name: str = "",
 ) -> dict[str, str]:
     """Create a new Form view on a Notion database.
 
@@ -103,6 +104,11 @@ async def create_form_view(
         ctx: Auth context.
         referer: URL of the database page (used as HTTP referer).
         view_name: Name shown on the view tab.
+        title_question_name: Display label for the auto-created first question
+            (bound to the ``title`` property). When empty, Notion renders its
+            "Question name" placeholder because ``shouldSyncQuestionNameToPropertyName``
+            only triggers on subsequent UI edits, not at creation time. Pass the
+            DB's title property name (e.g. "제목") to show a correct label.
 
     Returns:
         Dict with keys ``view_id``, ``form_block_id``, ``layout_id``,
@@ -202,8 +208,8 @@ async def create_form_view(
             "alive": True,
             "config": {
                 "propertyId": "title",
-                "name": [],
-                "shouldSyncQuestionNameToPropertyName": True,
+                "name": [[title_question_name]] if title_question_name else [],
+                "shouldSyncQuestionNameToPropertyName": not title_question_name,
             },
         },
     }

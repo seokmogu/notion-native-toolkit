@@ -30,18 +30,22 @@ APP_DB = "33f7d832-2b04-818e-8919-cf8760e8782c"
 MGT_DB = "33f7d832-2b04-8118-8a2d-da3f70b00b62"
 HIS_DB = "33f7d832-2b04-81b8-8548-fb144bd39c89"
 
-# Property IDs (from `collection.schema` dump, 2026-04-21)
+# Collection IDs (resolved at runtime via resolve_collection_id)
 # APP DB source properties:
-APP_PROP_EMAIL = "=L~s"     # 계정 이메일 (email)
-APP_PROP_SOSOK = "]aja"     # 소속 (text)
-APP_PROP_REASON = "{>Dk"    # 신청 사유 (text)
+APP_PROP_EMAIL = "=L~s"       # 계정 이메일 (email)
+APP_PROP_SOSOK = "]aja"       # 소속 (text)
+APP_PROP_REASON = "{>Dk"      # 신청 사유 (text)
+APP_PROP_TARGET = "{dV<"      # 대상자 (person)
 # MGT DB target properties:
-MGT_PROP_STATUS = "hcOM"    # 현재 상태 (select)
-MGT_PROP_SOSOK = "mU@q"     # 소속 (text)
-MGT_PROP_EMAIL = "_e:N"     # 계정 이메일 (email)
+MGT_PROP_STATUS = "hcOM"      # 현재 상태 (select)
+MGT_PROP_SOSOK = "mU@q"       # 소속 (text)
+MGT_PROP_EMAIL = "_e:N"       # 계정 이메일 (email)
+MGT_PROP_TARGET = "u|hV"      # 대상자 (person)
+MGT_PROP_APP_REL = "Z_Ma"     # 신청 원본 (relation to APP)
 # HIS DB target properties:
-HIS_PROP_COMMENT = "GmE@"   # 코멘트 (text)
-HIS_EVENT_TYPE = None       # resolved at runtime
+HIS_PROP_COMMENT = "GmE@"     # 코멘트 (text)
+HIS_PROP_MGT_REL = "ZJTl"     # 대상자 (relation to MGT)
+HIS_EVENT_TYPE = None         # resolved at runtime
 
 RULES = [
     {"id": "AUTO-1", "name": "AUTO-1 신청→관리",
@@ -51,32 +55,56 @@ RULES = [
      "source_refs": {
          MGT_PROP_SOSOK: (APP_PROP_SOSOK, "소속"),
          MGT_PROP_EMAIL: (APP_PROP_EMAIL, "계정 이메일"),
-     }},
+     },
+     # 대상자 is person — requires formula-style ref with collection pointer.
+     # Collection id populated at runtime.
+     "formula_refs_tpl": [(MGT_PROP_TARGET, "source", APP_PROP_TARGET, "대상자")],
+     # MGT 신청 원본 → relation to APP row (= trigger page itself).
+     "trigger_page_refs": [MGT_PROP_APP_REL]},
     {"id": "AUTO-2", "name": "AUTO-2 신청→이력 신청 이벤트",
      "source": APP_DB, "target": HIS_DB,
      "title": "신청 이벤트", "trigger": "pages_added",
      "selects": {"EVENT_TYPE": "신청"},
-     "source_refs": {HIS_PROP_COMMENT: (APP_PROP_REASON, "신청 사유")}},
+     "source_refs": {HIS_PROP_COMMENT: (APP_PROP_REASON, "신청 사유")}
+     # HIS 대상자 is Relation to MGT, but trigger here is APP — no direct ref.
+     # Left blank; user can wire via UI or via AUTO-1 side-effect with Rollup.
+     },
+    # AUTO-3~7: trigger is MGT property edit with SPECIFIC value filter.
+    # Distinguishes which automation fires based on 현재 상태 or 현재 플랜 value.
     {"id": "AUTO-3", "name": "AUTO-3 관리→이력 배정",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "배정 이벤트", "trigger": "page_props_any",
-     "selects": {"EVENT_TYPE": "배정"}},
+     "title": "배정 이벤트", "trigger": "page_props_filtered",
+     "prop_filters": [{"property": MGT_PROP_STATUS, "filter": {"operator":"enum_is", "value":[{"type":"exact","value":"사용중"}]}}],
+     "selects": {"EVENT_TYPE": "배정"},
+     "trigger_page_refs": [HIS_PROP_MGT_REL]},
     {"id": "AUTO-4", "name": "AUTO-4 관리→이력 반려",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "반려 이벤트", "trigger": "page_props_any",
-     "selects": {"EVENT_TYPE": "반려"}},
+     "title": "반려 이벤트", "trigger": "page_props_filtered",
+     "prop_filters": [{"property": MGT_PROP_STATUS, "filter": {"operator":"enum_is", "value":[{"type":"exact","value":"반려"}]}}],
+     "selects": {"EVENT_TYPE": "반려"},
+     "trigger_page_refs": [HIS_PROP_MGT_REL]},
     {"id": "AUTO-5", "name": "AUTO-5 관리→이력 중지",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "중지 이벤트", "trigger": "page_props_any",
-     "selects": {"EVENT_TYPE": "중지"}},
-    {"id": "AUTO-6", "name": "AUTO-6 관리→이력 재활성",
-     "source": MGT_DB, "target": HIS_DB,
-     "title": "재활성 이벤트", "trigger": "page_props_any",
-     "selects": {"EVENT_TYPE": "재활성"}},
+     "title": "중지 이벤트", "trigger": "page_props_filtered",
+     "prop_filters": [{"property": MGT_PROP_STATUS, "filter": {"operator":"enum_is", "value":[{"type":"exact","value":"중지"}]}}],
+     "selects": {"EVENT_TYPE": "중지"},
+     "trigger_page_refs": [HIS_PROP_MGT_REL]},
+    # AUTO-6 재활성: 중지 → 사용중 전환 — same filter as AUTO-3 would fire on both
+    # normal "배정" and "재활성" 상태=사용중 transitions. Without prior-value
+    # conditioning (Notion doesn't expose that via our payload shape), we let
+    # AUTO-3 cover both cases and drop AUTO-6. Left here for documentation.
+    # {"id": "AUTO-6", ...}   # merged into AUTO-3
     {"id": "AUTO-7", "name": "AUTO-7 관리→이력 플랜변경",
      "source": MGT_DB, "target": HIS_DB,
-     "title": "플랜변경 이벤트", "trigger": "page_props_any",
-     "selects": {"EVENT_TYPE": "플랜변경"}},
+     "title": "플랜변경 이벤트", "trigger": "page_props_filtered",
+     # Fires on ANY 현재 플랜 edit (to any of the 3 plan values).
+     "prop_filters": [{"property": "R^Pt", "filter": {"operator":"enum_is", "value":[
+         {"type":"exact","value":"Team Standard"},
+         {"type":"exact","value":"Team Premium"},
+         {"type":"exact","value":"Max 20x"},
+     ]}}],
+     "selects": {"EVENT_TYPE": "플랜변경"},
+     "trigger_page_refs": [HIS_PROP_MGT_REL]},
 ]
 
 
@@ -137,6 +165,9 @@ def build_create_ops(
     trigger: str,
     selects: dict[str, str] | None = None,
     source_refs: dict[str, tuple] | None = None,
+    formula_refs: dict[str, tuple] | None = None,
+    trigger_page_refs: list[str] | None = None,
+    prop_filters: list[dict] | None = None,
 ) -> tuple:
     auto_id = str(uuid.uuid4())
     action_id = str(uuid.uuid4())
@@ -145,9 +176,15 @@ def build_create_ops(
 
     source_ptr = {"id": source_coll, "table": "collection", "spaceId": SPACE_ID}
     target_ptr = {"table": "collection", "id": target_coll, "spaceId": SPACE_ID}
+    if trigger == "page_props_filtered":
+        pp_edited = {"type": "all", "all": prop_filters or []}
+    elif trigger == "page_props_any":
+        pp_edited = {"type": "any"}
+    else:
+        pp_edited = {"type": "none"}
     event = {
         "pagesAdded": trigger == "pages_added",
-        "pagePropertiesEdited": {"type": "any"} if trigger == "page_props_any" else {"type": "none"},
+        "pagePropertiesEdited": pp_edited,
         "source": {"pointer": source_ptr, "type": "collection"},
     }
     property_order: list[str] = ["title"]
@@ -180,6 +217,34 @@ def build_create_ops(
                         ]],
                     ],
                     [" "],
+                ],
+            },
+        }
+    for pid, (src_coll, src_pid, src_name) in (formula_refs or {}).items():
+        property_order.append(pid)
+        values_map[pid] = {
+            "action": "replace",
+            "value": {
+                "type": "formula",
+                "value": [
+                    ["‣", [["fv", {"id": '{"global":"button_page","source":"global"}'}]]],
+                    ["."],
+                    ["‣", [["fpp", {
+                        "collection": {"table":"collection", "id": src_coll, "spaceId": SPACE_ID},
+                        "property": src_pid,
+                        "name": src_name,
+                    }]]],
+                ],
+            },
+        }
+    for pid in (trigger_page_refs or []):
+        property_order.append(pid)
+        values_map[pid] = {
+            "action": "replace",
+            "value": {
+                "type": "formula",
+                "value": [
+                    ["‣", [["fv", {"id": '{"global":"button_page","source":"global"}'}]]],
                 ],
             },
         }
@@ -317,6 +382,12 @@ def main() -> int:
             selects = dict(rule.get("selects") or {})
             if "EVENT_TYPE" in selects:
                 selects[his_event_pid] = selects.pop("EVENT_TYPE")
+            # Resolve formula_refs_tpl (needs source_coll)
+            formula_refs = {}
+            for tpl in (rule.get("formula_refs_tpl") or []):
+                target_pid, kind, src_pid, src_name = tpl
+                src_coll = coll[rule["source"]] if kind == "source" else None
+                formula_refs[target_pid] = (src_coll, src_pid, src_name)
             ops, auto_id, action_id = build_create_ops(
                 source_coll=coll[rule["source"]],
                 source_block=rule["source"],
@@ -326,6 +397,9 @@ def main() -> int:
                 trigger=rule["trigger"],
                 selects=selects,
                 source_refs=rule.get("source_refs") or {},
+                formula_refs=formula_refs,
+                trigger_page_refs=rule.get("trigger_page_refs") or [],
+                prop_filters=rule.get("prop_filters") or [],
             )
             save_transactions(page, ops, "sdk.createAddPageAutomation")
             print(f"   OK automation_id={auto_id}")

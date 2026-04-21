@@ -757,8 +757,11 @@ class NotionInternalClient:
         title_text: str = "자동 생성",
         selects: dict[str, str] | None = None,
         source_refs: dict[str, tuple[str, str]] | None = None,
+        formula_refs: dict[str, tuple[str, str, str]] | None = None,
+        trigger_page_refs: list[str] | None = None,
         name: str | None = None,
         trigger: str = "pages_added",
+        prop_filters: list[dict[str, Any]] | None = None,
     ) -> str | None:
         """Create a DB automation that adds a page to another database.
 
@@ -781,10 +784,24 @@ class NotionInternalClient:
                 mapping that copies the trigger-row value of ``source_prop_id``
                 into ``target_prop_id``. Works for text and email properties
                 (Notion renders the mention as "페이지 실행의 {source_prop_name}").
-                NOT supported for People / Relation — those require custom
-                formulas and must be configured via UI.
+            formula_refs: Optional ``{target_prop_id: (source_coll_id, source_prop_id, source_prop_name)}``
+                for People-typed (or similarly typed) target properties. Uses
+                the formula-style ``페이지 실행 · <prop>`` construct captured
+                via UI's "사용자 지정 수식 작성" flow. Source collection id
+                must be passed because People refs carry a collection pointer.
+            trigger_page_refs: Optional list of target property IDs (usually
+                Relation) that should be filled with the trigger page itself.
+                Used when target DB has a Relation to source DB (the created
+                page will link back to the triggering row).
             name: Optional automation display name.
-            trigger: ``"pages_added"`` (default) or ``"page_props_any"``.
+            trigger: ``"pages_added"`` (default) or ``"page_props_any"`` (any
+                property edit), or ``"page_props_filtered"`` combined with
+                ``prop_filters`` for value-based gating.
+            prop_filters: Used with ``trigger="page_props_filtered"``. List of
+                ``{"property": <prop_id>, "filter": {"operator": <op>, "value": [...]}}``
+                filters — e.g., ``{"property": "hcOM", "filter": {"operator": "enum_is",
+                "value": [{"type": "exact", "value": "사용중"}]}}`` fires only when
+                Select field ``hcOM`` becomes ``사용중``.
 
         Returns: New automation UUID on success, else None.
         """
@@ -861,6 +878,43 @@ class NotionInternalClient:
                             ],
                         ],
                         [" "],
+                    ],
+                },
+            }
+        for pid, (src_coll, src_pid, src_name) in (formula_refs or {}).items():
+            # @MX:NOTE: People/typed-ref source refs use the "formula" shape
+            # with fv + "." + fpp(collection). Captured 2026-04-21 via UI
+            # "사용자 지정 수식 작성" → 페이지 실행 · 대상자.
+            property_order.append(pid)
+            values_map[pid] = {
+                "action": "replace",
+                "value": {
+                    "type": "formula",
+                    "value": [
+                        ["‣", [["fv", {"id": '{"global":"button_page","source":"global"}'}]]],
+                        ["."],
+                        ["‣", [["fpp", {
+                            "collection": {
+                                "table": "collection",
+                                "id": src_coll,
+                                "spaceId": self.space_id,
+                            },
+                            "property": src_pid,
+                            "name": src_name,
+                        }]]],
+                    ],
+                },
+            }
+        for pid in (trigger_page_refs or []):
+            # Fill target Relation/People with the trigger page itself
+            # ("페이지 실행" formula - just fv without dot/fpp).
+            property_order.append(pid)
+            values_map[pid] = {
+                "action": "replace",
+                "value": {
+                    "type": "formula",
+                    "value": [
+                        ["‣", [["fv", {"id": '{"global":"button_page","source":"global"}'}]]],
                     ],
                 },
             }

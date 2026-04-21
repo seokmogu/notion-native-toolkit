@@ -289,19 +289,44 @@ webhook_auto_id = client.create_database_webhook_automation(
 )
 
 # 2) Page-creation 자동화 — 트리거 시 다른 DB에 페이지 추가
-#    지원: title(simple text) + selects(고정 옵션) + source_refs(트리거 행 text/email 복사)
-#    미지원: People / Relation 매핑은 UI에서 설정 필요 (Notion formula 구문)
+# 지원 속성:
+#   - title(simple text)
+#   - selects(고정 옵션)
+#   - source_refs(트리거 행 text/email 복사)
+#   - formula_refs(트리거 행 People 복사)
+#   - trigger_page_refs(트리거 페이지 자체를 Relation으로 연결)
+# 지원 트리거:
+#   - "pages_added" (기본)
+#   - "page_props_any" (모든 속성 편집)
+#   - "page_props_filtered" + prop_filters (특정 값으로 편집될 때만)
 add_page_auto_id = client.create_database_add_page_automation(
     source_database_id="33f7d832-...",  # 트리거 DB
     target_database_id="33f7d832-...",  # 새 페이지가 만들어질 DB
-    title_text="신규 신청 접수",         # 새 페이지 title 컬럼 고정 텍스트
-    selects={"hcOM": "신청중"},          # {target_prop_id: option_name}
-    source_refs={                        # {target_prop_id: (source_prop_id, 표시이름)}
-        "mU@q": ("]aja", "소속"),        # target 소속 = 트리거 행 소속
-        "_e:N": ("=L~s", "계정 이메일"), # target 계정 이메일 = 트리거 행 계정 이메일
+    title_text="신규 신청 접수",
+    selects={"hcOM": "신청중"},          # Select 고정값
+    source_refs={                        # text/email 소스 복사
+        "mU@q": ("]aja", "소속"),
+        "_e:N": ("=L~s", "계정 이메일"),
     },
+    formula_refs={                       # People 소스 복사
+        "u|hV": ("<source_coll_id>", "{dV<", "대상자"),
+    },
+    trigger_page_refs=["Z_Ma"],          # 트리거 페이지를 Relation으로
     name="신청→관리 자동 연동",
     trigger="pages_added",
+)
+
+# 조건부 트리거 예: "현재 상태"가 "사용중"으로 변경될 때만 발화
+cond_auto_id = client.create_database_add_page_automation(
+    source_database_id="...", target_database_id="...",
+    title_text="배정 이벤트",
+    selects={"MM^g": "배정"},
+    trigger="page_props_filtered",
+    prop_filters=[{
+        "property": "hcOM",
+        "filter": {"operator": "enum_is", "value": [{"type":"exact", "value":"사용중"}]},
+    }],
+    name="상태 변경 → 이력 자동 기록",
 )
 
 # 목록 조회

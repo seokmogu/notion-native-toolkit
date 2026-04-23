@@ -760,6 +760,7 @@ class NotionInternalClient:
         formula_refs: dict[str, tuple[str, str, str]] | None = None,
         trigger_page_refs: list[str] | None = None,
         page_creator_refs: list[str] | None = None,
+        trigger_actor_refs: list[str] | None = None,
         name: str | None = None,
         trigger: str = "pages_added",
         prop_filters: list[dict[str, Any]] | None = None,
@@ -930,6 +931,22 @@ class NotionInternalClient:
                     "value": [
                         ["["],
                         ["‣", [["fv", {"id": '{"global":"page_creator","source":"global"}'}]]],
+                        ["]"],
+                    ],
+                },
+            }
+        for pid in (trigger_actor_refs or []):
+            # Fill target People field with the person who triggered the
+            # automation ("실행한 모든 사람" / current_user). For pages_added
+            # this is the creator; for property edits it's the editor.
+            property_order.append(pid)
+            values_map[pid] = {
+                "action": "replace",
+                "value": {
+                    "type": "simple",
+                    "value": [
+                        ["["],
+                        ["‣", [["fv", {"id": '{"global":"current_user","source":"global"}'}]]],
                         ["]"],
                     ],
                 },

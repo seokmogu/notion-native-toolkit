@@ -78,40 +78,40 @@ RULES = [
      "page_creator_refs": [HIS_PROP_HANDLER]},
     # AUTO-3~7: trigger is MGT property edit with SPECIFIC value filter.
     # Distinguishes which automation fires based on 현재 상태 or 현재 플랜 value.
+    # 처리자 = current_user (관리 DB를 편집한 사람)
     {"id": "AUTO-3", "name": "AUTO-3 관리→이력 배정",
      "source": MGT_DB, "target": HIS_DB,
      "title": "배정 이벤트", "trigger": "page_props_filtered",
      "prop_filters": [{"property": MGT_PROP_STATUS, "filter": {"operator":"enum_is", "value":[{"type":"exact","value":"사용중"}]}}],
      "selects": {"EVENT_TYPE": "배정"},
-     "trigger_page_refs": [HIS_PROP_MGT_REL]},
+     "trigger_page_refs": [HIS_PROP_MGT_REL],
+     "trigger_actor_refs": [HIS_PROP_HANDLER]},
     {"id": "AUTO-4", "name": "AUTO-4 관리→이력 반려",
      "source": MGT_DB, "target": HIS_DB,
      "title": "반려 이벤트", "trigger": "page_props_filtered",
      "prop_filters": [{"property": MGT_PROP_STATUS, "filter": {"operator":"enum_is", "value":[{"type":"exact","value":"반려"}]}}],
      "selects": {"EVENT_TYPE": "반려"},
-     "trigger_page_refs": [HIS_PROP_MGT_REL]},
+     "trigger_page_refs": [HIS_PROP_MGT_REL],
+     "trigger_actor_refs": [HIS_PROP_HANDLER]},
     {"id": "AUTO-5", "name": "AUTO-5 관리→이력 중지",
      "source": MGT_DB, "target": HIS_DB,
      "title": "중지 이벤트", "trigger": "page_props_filtered",
      "prop_filters": [{"property": MGT_PROP_STATUS, "filter": {"operator":"enum_is", "value":[{"type":"exact","value":"중지"}]}}],
      "selects": {"EVENT_TYPE": "중지"},
-     "trigger_page_refs": [HIS_PROP_MGT_REL]},
-    # AUTO-6 재활성: 중지 → 사용중 전환 — same filter as AUTO-3 would fire on both
-    # normal "배정" and "재활성" 상태=사용중 transitions. Without prior-value
-    # conditioning (Notion doesn't expose that via our payload shape), we let
-    # AUTO-3 cover both cases and drop AUTO-6. Left here for documentation.
-    # {"id": "AUTO-6", ...}   # merged into AUTO-3
+     "trigger_page_refs": [HIS_PROP_MGT_REL],
+     "trigger_actor_refs": [HIS_PROP_HANDLER]},
+    # AUTO-6 재활성: AUTO-3과 동일 트리거. 관리자가 이력 DB에서 유형 수정.
     {"id": "AUTO-7", "name": "AUTO-7 관리→이력 플랜변경",
      "source": MGT_DB, "target": HIS_DB,
      "title": "플랜변경 이벤트", "trigger": "page_props_filtered",
-     # Fires on ANY 현재 플랜 edit (to any of the 3 plan values).
      "prop_filters": [{"property": "R^Pt", "filter": {"operator":"enum_is", "value":[
          {"type":"exact","value":"Team Standard"},
          {"type":"exact","value":"Team Premium"},
          {"type":"exact","value":"Max 20x"},
      ]}}],
      "selects": {"EVENT_TYPE": "플랜변경"},
-     "trigger_page_refs": [HIS_PROP_MGT_REL]},
+     "trigger_page_refs": [HIS_PROP_MGT_REL],
+     "trigger_actor_refs": [HIS_PROP_HANDLER]},
 ]
 
 
@@ -175,6 +175,7 @@ def build_create_ops(
     formula_refs: dict[str, tuple] | None = None,
     trigger_page_refs: list[str] | None = None,
     page_creator_refs: list[str] | None = None,
+    trigger_actor_refs: list[str] | None = None,
     prop_filters: list[dict] | None = None,
 ) -> tuple:
     auto_id = str(uuid.uuid4())
@@ -265,6 +266,19 @@ def build_create_ops(
                 "value": [
                     ["["],
                     ["‣", [["fv", {"id": '{"global":"page_creator","source":"global"}'}]]],
+                    ["]"],
+                ],
+            },
+        }
+    for pid in (trigger_actor_refs or []):
+        property_order.append(pid)
+        values_map[pid] = {
+            "action": "replace",
+            "value": {
+                "type": "simple",
+                "value": [
+                    ["["],
+                    ["‣", [["fv", {"id": '{"global":"current_user","source":"global"}'}]]],
                     ["]"],
                 ],
             },
@@ -421,6 +435,7 @@ def main() -> int:
                 formula_refs=formula_refs,
                 trigger_page_refs=rule.get("trigger_page_refs") or [],
                 page_creator_refs=rule.get("page_creator_refs") or [],
+                trigger_actor_refs=rule.get("trigger_actor_refs") or [],
                 prop_filters=rule.get("prop_filters") or [],
             )
             save_transactions(page, ops, "sdk.createAddPageAutomation")

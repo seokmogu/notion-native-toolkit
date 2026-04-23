@@ -575,6 +575,60 @@ async def delete_form_question(
     )
 
 
+async def rename_form_question(
+    page: Page,
+    *,
+    form_question_id: str,
+    name: str,
+    ctx: NotionInternalContext,
+    referer: str,
+) -> None:
+    """Update the display label of an existing form question.
+
+    Flips ``shouldSyncQuestionNameToPropertyName`` to False so the custom
+    label sticks even if the underlying DB property is renamed later.
+
+    Args:
+        page: Logged-in Playwright Page.
+        form_question_id: UUID of the form_question record to rename.
+        name: New display label (plain text, single line).
+        ctx: Auth context.
+        referer: URL of the form view (used as HTTP referer).
+    """
+    op: dict[str, Any] = {
+        "pointer": {
+            "table": "form_question",
+            "id": form_question_id,
+            "spaceId": ctx.space_id,
+        },
+        "path": ["config"],
+        "command": "update",
+        "args": {
+            "name": [[name]],
+            "shouldSyncQuestionNameToPropertyName": False,
+        },
+    }
+    payload: dict[str, Any] = {
+        "requestId": str(uuid.uuid4()),
+        "transactions": [
+            {
+                "id": str(uuid.uuid4()),
+                "spaceId": ctx.space_id,
+                "debug": {"userAction": "FormQuestion.rename"},
+                "operations": [op],
+            }
+        ],
+        "unretryable_error_behavior": "continue",
+    }
+    await _post(
+        page,
+        path="saveTransactionsMain",
+        body=payload,
+        ctx=ctx,
+        referer=referer,
+    )
+
+
 async def get_form_layout(
     page: Page,
     *,

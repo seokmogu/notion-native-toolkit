@@ -759,6 +759,7 @@ class NotionInternalClient:
         source_refs: dict[str, tuple[str, str]] | None = None,
         formula_refs: dict[str, tuple[str, str, str]] | None = None,
         trigger_page_refs: list[str] | None = None,
+        page_creator_refs: list[str] | None = None,
         name: str | None = None,
         trigger: str = "pages_added",
         prop_filters: list[dict[str, Any]] | None = None,
@@ -915,6 +916,21 @@ class NotionInternalClient:
                     "type": "formula",
                     "value": [
                         ["‣", [["fv", {"id": '{"global":"button_page","source":"global"}'}]]],
+                    ],
+                },
+            }
+        for pid in (page_creator_refs or []):
+            # Fill target People field with the creator of the trigger page
+            # ("페이지 작성자" built-in). Wrapped in [ ] in simple-type value.
+            property_order.append(pid)
+            values_map[pid] = {
+                "action": "replace",
+                "value": {
+                    "type": "simple",
+                    "value": [
+                        ["["],
+                        ["‣", [["fv", {"id": '{"global":"page_creator","source":"global"}'}]]],
+                        ["]"],
                     ],
                 },
             }

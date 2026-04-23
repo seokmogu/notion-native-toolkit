@@ -36,15 +36,19 @@ APP_PROP_EMAIL = "=L~s"       # 계정 이메일 (email)
 APP_PROP_SOSOK = "]aja"       # 소속 (text)
 APP_PROP_REASON = "{>Dk"      # 신청 사유 (text)
 APP_PROP_TARGET = "{dV<"      # 대상자 (person)
+APP_PROP_PLAN = "_shS"        # 희망 플랜 (select)
 # MGT DB target properties:
 MGT_PROP_STATUS = "hcOM"      # 현재 상태 (select)
 MGT_PROP_SOSOK = "mU@q"       # 소속 (text)
 MGT_PROP_EMAIL = "_e:N"       # 계정 이메일 (email)
 MGT_PROP_TARGET = "u|hV"      # 대상자 (person)
 MGT_PROP_APP_REL = "Z_Ma"     # 신청 원본 (relation to APP)
+MGT_PROP_PLAN = "R^Pt"        # 현재 플랜 (select)
+MGT_PROP_APPROVER = "\\UzM"   # 승인자 (person)
 # HIS DB target properties:
 HIS_PROP_COMMENT = "GmE@"     # 코멘트 (text)
 HIS_PROP_MGT_REL = "ZJTl"     # 대상자 (relation to MGT)
+HIS_PROP_HANDLER = "~pdU"     # 처리자 (person)
 HIS_EVENT_TYPE = None         # resolved at runtime
 
 RULES = [
@@ -56,19 +60,22 @@ RULES = [
          MGT_PROP_SOSOK: (APP_PROP_SOSOK, "소속"),
          MGT_PROP_EMAIL: (APP_PROP_EMAIL, "계정 이메일"),
      },
-     # 대상자 is person — requires formula-style ref with collection pointer.
-     # Collection id populated at runtime.
-     "formula_refs_tpl": [(MGT_PROP_TARGET, "source", APP_PROP_TARGET, "대상자")],
+     # 대상자(person) + 현재 플랜(select) copied from source via formula-style
+     # refs (collection pointer). Collection id resolved at runtime.
+     "formula_refs_tpl": [
+         (MGT_PROP_TARGET, "source", APP_PROP_TARGET, "대상자"),
+         (MGT_PROP_PLAN, "source", APP_PROP_PLAN, "희망 플랜"),
+     ],
      # MGT 신청 원본 → relation to APP row (= trigger page itself).
-     "trigger_page_refs": [MGT_PROP_APP_REL]},
+     "trigger_page_refs": [MGT_PROP_APP_REL],
+     # MGT 승인자 ← APP row's Created by
+     "page_creator_refs": [MGT_PROP_APPROVER]},
     {"id": "AUTO-2", "name": "AUTO-2 신청→이력 신청 이벤트",
      "source": APP_DB, "target": HIS_DB,
      "title": "신청 이벤트", "trigger": "pages_added",
      "selects": {"EVENT_TYPE": "신청"},
-     "source_refs": {HIS_PROP_COMMENT: (APP_PROP_REASON, "신청 사유")}
-     # HIS 대상자 is Relation to MGT, but trigger here is APP — no direct ref.
-     # Left blank; user can wire via UI or via AUTO-1 side-effect with Rollup.
-     },
+     "source_refs": {HIS_PROP_COMMENT: (APP_PROP_REASON, "신청 사유")},
+     "page_creator_refs": [HIS_PROP_HANDLER]},
     # AUTO-3~7: trigger is MGT property edit with SPECIFIC value filter.
     # Distinguishes which automation fires based on 현재 상태 or 현재 플랜 value.
     {"id": "AUTO-3", "name": "AUTO-3 관리→이력 배정",
@@ -167,6 +174,7 @@ def build_create_ops(
     source_refs: dict[str, tuple] | None = None,
     formula_refs: dict[str, tuple] | None = None,
     trigger_page_refs: list[str] | None = None,
+    page_creator_refs: list[str] | None = None,
     prop_filters: list[dict] | None = None,
 ) -> tuple:
     auto_id = str(uuid.uuid4())
@@ -245,6 +253,19 @@ def build_create_ops(
                 "type": "formula",
                 "value": [
                     ["‣", [["fv", {"id": '{"global":"button_page","source":"global"}'}]]],
+                ],
+            },
+        }
+    for pid in (page_creator_refs or []):
+        property_order.append(pid)
+        values_map[pid] = {
+            "action": "replace",
+            "value": {
+                "type": "simple",
+                "value": [
+                    ["["],
+                    ["‣", [["fv", {"id": '{"global":"page_creator","source":"global"}'}]]],
+                    ["]"],
                 ],
             },
         }
@@ -399,6 +420,7 @@ def main() -> int:
                 source_refs=rule.get("source_refs") or {},
                 formula_refs=formula_refs,
                 trigger_page_refs=rule.get("trigger_page_refs") or [],
+                page_creator_refs=rule.get("page_creator_refs") or [],
                 prop_filters=rule.get("prop_filters") or [],
             )
             save_transactions(page, ops, "sdk.createAddPageAutomation")

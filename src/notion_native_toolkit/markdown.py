@@ -245,7 +245,10 @@ def extract_text_content(token: Any) -> str:
     if isinstance(token, RawText):
         return token.content
     if hasattr(token, "children"):
-        return "".join(extract_text_content(child) for child in token.children)
+        children = token.children
+        if children is None:
+            return ""
+        return "".join(extract_text_content(child) for child in children)
     return ""
 
 
@@ -263,7 +266,7 @@ def convert_inline_text(
                 {"type": "text", "text": {"content": token.content[:2000]}}
             )
     elif isinstance(token, Strong):
-        for child in token.children:
+        for child in token.children or []:
             text = extract_text_content(child)
             if text:
                 rich_text.append(
@@ -274,7 +277,7 @@ def convert_inline_text(
                     }
                 )
     elif isinstance(token, Emphasis):
-        for child in token.children:
+        for child in token.children or []:
             text = extract_text_content(child)
             if text:
                 rich_text.append(
@@ -285,10 +288,12 @@ def convert_inline_text(
                     }
                 )
     elif isinstance(token, InlineCode):
+        children = token.children
+        code_content = children[0].content if children else ""
         rich_text.append(
             {
                 "type": "text",
-                "text": {"content": token.children[0].content[:2000]},
+                "text": {"content": code_content[:2000]},
                 "annotations": {"code": True},
             }
         )
@@ -325,7 +330,7 @@ def convert_inline_text(
     elif isinstance(token, LineBreak):
         rich_text.append({"type": "text", "text": {"content": "\n"}})
     elif hasattr(token, "children"):
-        for child in token.children:
+        for child in token.children or []:
             rich_text.extend(
                 convert_inline_text(
                     child, source_file_path, mapping, project_root, pending_links
@@ -382,7 +387,7 @@ def _convert_list_items(
 ) -> list[dict[str, Any]]:
     """Convert a List token to Notion blocks, with recursive nested list support (FR-01 P2)."""
     result_blocks: list[dict[str, Any]] = []
-    for item in list_token.children:
+    for item in list_token.children or []:
         if not isinstance(item, ListItem):
             continue
         rich_text: list[dict[str, Any]] = []
@@ -390,7 +395,7 @@ def _convert_list_items(
         is_checked = False
         child_blocks: list[dict[str, Any]] = []
 
-        for child in item.children:
+        for child in item.children or []:
             if isinstance(child, Paragraph):
                 text_content = extract_text_content(child)
                 checkbox_match = re.match(r"^\[([ xX])]\s*(.*)", text_content)
@@ -405,7 +410,7 @@ def _convert_list_items(
                         }
                     ]
                 else:
-                    for inline_child in child.children:
+                    for inline_child in child.children or []:
                         rich_text.extend(
                             convert_inline_text(
                                 inline_child,
@@ -461,13 +466,13 @@ def markdown_to_notion_blocks(
     document = Document(markdown_content)
     blocks: list[dict[str, Any]] = []
     pending_links: list[dict[str, str]] = []
-    for token in document.children:
+    for token in document.children or []:
         block: dict[str, Any] | None = None
         if isinstance(token, Heading):
             level = min(token.level, 3)
             heading_type = f"heading_{level}"
             rich_text: list[dict[str, Any]] = []
-            for child in token.children:
+            for child in token.children or []:
                 rich_text.extend(
                     convert_inline_text(
                         child, source_file_path, mapping, project_root, pending_links
@@ -490,7 +495,7 @@ def markdown_to_notion_blocks(
                 "py": "python",
             }
             code_content = "".join(
-                extract_text_content(child) for child in token.children
+                extract_text_content(child) for child in (token.children or [])
             )
             mapped_language = language_map.get(language.lower(), language.lower())
             # FR-02: Mermaid sanitization (never split)
@@ -527,9 +532,9 @@ def markdown_to_notion_blocks(
             first_paragraph_text: list[dict[str, Any]] = []
             child_blocks: list[dict[str, Any]] = []
             first_para_done = False
-            for child in token.children:
+            for child in token.children or []:
                 if isinstance(child, Paragraph) and not first_para_done:
-                    for inline_child in child.children:
+                    for inline_child in child.children or []:
                         first_paragraph_text.extend(
                             convert_inline_text(
                                 inline_child,
@@ -542,7 +547,7 @@ def markdown_to_notion_blocks(
                     first_para_done = True
                 elif isinstance(child, Paragraph):
                     p_rich: list[dict[str, Any]] = []
-                    for inline_child in child.children:
+                    for inline_child in child.children or []:
                         p_rich.extend(
                             convert_inline_text(
                                 inline_child,
@@ -557,13 +562,13 @@ def markdown_to_notion_blocks(
                             {"object": "block", "type": "paragraph", "paragraph": {"rich_text": p_rich}}
                         )
                 elif isinstance(child, List):
-                    for item in child.children:
+                    for item in child.children or []:
                         if not isinstance(item, ListItem):
                             continue
                         li_rich: list[dict[str, Any]] = []
-                        for li_child in item.children:
+                        for li_child in item.children or []:
                             if isinstance(li_child, Paragraph):
-                                for ic in li_child.children:
+                                for ic in li_child.children or []:
                                     li_rich.extend(
                                         convert_inline_text(ic, source_file_path, mapping, project_root, pending_links)
                                     )
@@ -606,11 +611,11 @@ def markdown_to_notion_blocks(
 
             def process_table_row(row: Any) -> list[list[dict[str, Any]]]:
                 cells: list[list[dict[str, Any]]] = []
-                for cell in row.children:
+                for cell in row.children or []:
                     if not isinstance(cell, TableCell):
                         continue
                     cell_rich_text: list[dict[str, Any]] = []
-                    for child in cell.children:
+                    for child in cell.children or []:
                         cell_rich_text.extend(
                             convert_inline_text(
                                 child,
@@ -645,7 +650,7 @@ def markdown_to_notion_blocks(
                 if header_cells:
                     table_rows.append(header_cells)
                     table_width = max(table_width, len(header_cells))
-            for row in token.children:
+            for row in token.children or []:
                 if isinstance(row, TableRow):
                     cells = process_table_row(row)
                     if cells:
@@ -686,7 +691,7 @@ def markdown_to_notion_blocks(
                     continue
             else:
                 rich_text: list[dict[str, Any]] = []
-                for child in token.children:
+                for child in token.children or []:
                     rich_text.extend(
                         convert_inline_text(
                             child, source_file_path, mapping, project_root, pending_links

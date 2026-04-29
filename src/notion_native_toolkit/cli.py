@@ -21,6 +21,7 @@ from .profiles import (
     load_config,
     upsert_profile,
 )
+from .repair import RepairOptions, parse_verify_command, run_repair
 from .toolkit import NotionToolkit
 
 
@@ -351,6 +352,26 @@ def cmd_deploy(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_repair_run(args: argparse.Namespace) -> int:
+    report = run_repair(
+        RepairOptions(
+            repo=Path(args.repo),
+            check=args.check,
+            verify_command=parse_verify_command(args.verify_command),
+            allow_integration=args.allow_integration,
+            max_iterations=args.max_iterations,
+            codex_model=args.codex_model,
+            sandbox=args.sandbox,
+            approval_policy=args.approval_policy,
+            output_dir=Path(args.output_dir) if args.output_dir else None,
+            max_log_chars=args.max_log_chars,
+            dry_run=args.dry_run,
+        )
+    )
+    _print_json(report.to_dict(max_chars=args.max_log_chars))
+    return 0 if report.success else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Native Notion toolkit")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -516,6 +537,79 @@ def build_parser() -> argparse.ArgumentParser:
         help="Landing page filename (default: readme.md)",
     )
     deploy_parser.set_defaults(func=cmd_deploy)
+
+    repair_parser = subparsers.add_parser(
+        "repair",
+        help="Run a Codex-backed self-repair loop for this repository",
+    )
+    repair_subparsers = repair_parser.add_subparsers(
+        dest="repair_command",
+        required=True,
+    )
+
+    repair_run = repair_subparsers.add_parser(
+        "run",
+        help="Run verification, invoke Codex on failure, then re-verify",
+    )
+    repair_run.add_argument(
+        "--repo",
+        default=".",
+        help="Repository root to repair (default: current directory)",
+    )
+    repair_run.add_argument(
+        "--check",
+        choices=["unit", "all", "integration"],
+        default="unit",
+        help="Built-in verification command to run (default: unit)",
+    )
+    repair_run.add_argument(
+        "--verify-command",
+        help="Custom verification command, parsed with shell-like quoting",
+    )
+    repair_run.add_argument(
+        "--allow-integration",
+        action="store_true",
+        help="Allow integration checks that can hit the real Notion API",
+    )
+    repair_run.add_argument(
+        "--max-iterations",
+        type=int,
+        default=3,
+        help="Maximum Codex repair attempts after the initial check (default: 3)",
+    )
+    repair_run.add_argument(
+        "--codex-model",
+        help="Optional explicit Codex model. Omit to inherit Codex/OMX defaults.",
+    )
+    repair_run.add_argument(
+        "--sandbox",
+        choices=["read-only", "workspace-write", "danger-full-access"],
+        default="workspace-write",
+        help="Codex sandbox mode for repair attempts (default: workspace-write)",
+    )
+    repair_run.add_argument(
+        "--approval-policy",
+        choices=["untrusted", "on-failure", "on-request", "never"],
+        default="never",
+        help="Codex approval policy for non-interactive repair (default: never)",
+    )
+    repair_run.add_argument(
+        "--output-dir",
+        default=".omc/repair",
+        help="Directory for JSON repair reports (default: .omc/repair)",
+    )
+    repair_run.add_argument(
+        "--max-log-chars",
+        type=int,
+        default=20000,
+        help="Maximum stdout/stderr characters stored per command (default: 20000)",
+    )
+    repair_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip Codex execution but still run verification and write a report",
+    )
+    repair_run.set_defaults(func=cmd_repair_run)
 
     return parser
 

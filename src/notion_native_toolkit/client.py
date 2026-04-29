@@ -11,7 +11,10 @@ NOTION_VERSION = "2022-06-28"
 
 
 class NotionApiClient:
-    def __init__(self, token: str, rate_limit: float = 0.35, timeout: float = 60.0):
+    def __init__(self, token: str, rate_limit: float = 0.0, timeout: float = 60.0):
+        # rate_limit kept for backward-compat but defaults to 0.
+        # Throttling is now reactive: 429/409 trigger retry with Retry-After
+        # header (see `call` below). No need for pre-call sleep.
         self.token = token
         self.rate_limit = rate_limit
         self.timeout = timeout
@@ -34,7 +37,8 @@ class NotionApiClient:
         endpoint: str,
         data: dict[str, Any] | None = None,
     ) -> httpx.Response | None:
-        time.sleep(self.rate_limit)
+        if self.rate_limit > 0:
+            time.sleep(self.rate_limit)
         try:
             return self.session.request(method, endpoint, json=data)
         except httpx.TimeoutException:

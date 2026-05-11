@@ -160,6 +160,21 @@ def _page_title(page: dict[str, object]) -> str:
     return "Untitled"
 
 
+def _strip_matching_leading_h1(content: str, title: str | None) -> str:
+    if not title:
+        return content
+    lines = content.splitlines()
+    if not lines:
+        return content
+    first = lines[0].strip()
+    if first != f"# {title.strip()}":
+        return content
+    start = 1
+    while start < len(lines) and not lines[start].strip():
+        start += 1
+    return "\n".join(lines[start:]).lstrip("\n")
+
+
 def _fetch_block_tree(toolkit: NotionToolkit, block_id: str) -> list[dict[str, object]]:
     client = toolkit.require_client()
     children = client.fetch_children(block_id) or []
@@ -197,7 +212,9 @@ def cmd_page_create_from_markdown(args: argparse.Namespace) -> int:
     client = toolkit.require_client()
     writer = toolkit.require_writer()
     markdown_path = Path(args.file)
-    content = markdown_path.read_text(encoding="utf-8")
+    content = _strip_matching_leading_h1(
+        markdown_path.read_text(encoding="utf-8"), args.title
+    )
     parent_page_id = args.parent_page_id or toolkit.profile.default_parent_page_id
     if not parent_page_id:
         raise ValueError(
@@ -246,7 +263,9 @@ def cmd_page_update_from_markdown(args: argparse.Namespace) -> int:
     client = toolkit.require_client()
     writer = toolkit.require_writer()
     markdown_path = Path(args.file)
-    content = markdown_path.read_text(encoding="utf-8")
+    content = _strip_matching_leading_h1(
+        markdown_path.read_text(encoding="utf-8"), args.title
+    )
     page_id = extract_page_id(args.page_id)
     if args.title:
         updated = client.update_page_title(page_id, args.title)

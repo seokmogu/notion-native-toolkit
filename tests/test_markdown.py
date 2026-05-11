@@ -2,6 +2,7 @@ from notion_native_toolkit.markdown import (
     markdown_to_notion_blocks,
     notion_blocks_to_markdown,
 )
+from notion_native_toolkit.cli import _strip_matching_leading_h1
 
 
 def test_markdown_round_trip_keeps_key_constructs() -> None:
@@ -59,3 +60,10 @@ def test_table_export_skips_imported_separator_rows() -> None:
 
     assert output.strip().splitlines() == ["| A | B |", "|---|---|", "| 1 | 2 |"]
     assert "| --- | ---: |" not in output
+
+
+def test_strip_matching_leading_h1_keeps_body_only() -> None:
+    source = "# Title\n\n## Section\n\nBody"
+
+    assert _strip_matching_leading_h1(source, "Title") == "## Section\n\nBody"
+    assert _strip_matching_leading_h1(source, "Other") == source

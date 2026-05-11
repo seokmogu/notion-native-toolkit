@@ -248,11 +248,15 @@ def cmd_page_update_from_markdown(args: argparse.Namespace) -> int:
     markdown_path = Path(args.file)
     content = markdown_path.read_text(encoding="utf-8")
     page_id = extract_page_id(args.page_id)
+    if args.title:
+        updated = client.update_page_title(page_id, args.title)
+        if updated is None:
+            raise RuntimeError("Failed to update page title")
     if args.mode == "native":
         response = client.replace_markdown(page_id, content)
         if response is None:
             raise RuntimeError("Native markdown page update failed")
-        _print_json({"page_id": page_id, "mode": args.mode})
+        _print_json({"page_id": page_id, "mode": args.mode, "title": args.title})
         return 0
     blocks, pending_links = markdown_to_notion_blocks(
         content, source_file_path=str(markdown_path)
@@ -266,6 +270,7 @@ def cmd_page_update_from_markdown(args: argparse.Namespace) -> int:
             "updated_blocks": len(blocks),
             "pending_links": pending_links,
             "mode": args.mode,
+            "title": args.title,
         }
     )
     return 0
@@ -441,15 +446,16 @@ def build_parser() -> argparse.ArgumentParser:
     page_create.add_argument("--title", required=True)
     page_create.add_argument("--parent-page-id")
     page_create.add_argument("--file", required=True)
-    page_create.add_argument("--mode", choices=["native", "blocks"], default="native")
+    page_create.add_argument("--mode", choices=["native", "blocks"], default="blocks")
     page_create.set_defaults(func=cmd_page_create_from_markdown)
 
     page_update = page_subparsers.add_parser("update-from-markdown")
     page_update.add_argument("--profile", required=True)
     page_update.add_argument("--page-id", required=True)
     page_update.add_argument("--file", required=True)
+    page_update.add_argument("--title")
     page_update.add_argument("--drop-child-pages", action="store_true")
-    page_update.add_argument("--mode", choices=["native", "blocks"], default="native")
+    page_update.add_argument("--mode", choices=["native", "blocks"], default="blocks")
     page_update.set_defaults(func=cmd_page_update_from_markdown)
 
     api_parser = subparsers.add_parser("api")

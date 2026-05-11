@@ -15,3 +15,47 @@ def test_markdown_round_trip_keeps_key_constructs() -> None:
     assert "> 💡 callout body" in output
     assert "```python" in output
     assert "| A | B |" in output
+
+
+def test_table_export_skips_imported_separator_rows() -> None:
+    blocks = [
+        {
+            "type": "table",
+            "table": {
+                "children": [
+                    {
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "A"}}],
+                                [{"type": "text", "text": {"content": "B"}}],
+                            ]
+                        },
+                    },
+                    {
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "---"}}],
+                                [{"type": "text", "text": {"content": "---:"}}],
+                            ]
+                        },
+                    },
+                    {
+                        "type": "table_row",
+                        "table_row": {
+                            "cells": [
+                                [{"type": "text", "text": {"content": "1"}}],
+                                [{"type": "text", "text": {"content": "2"}}],
+                            ]
+                        },
+                    },
+                ]
+            },
+        }
+    ]
+
+    output = notion_blocks_to_markdown(blocks)
+
+    assert output.strip().splitlines() == ["| A | B |", "|---|---|", "| 1 | 2 |"]
+    assert "| --- | ---: |" not in output

@@ -809,9 +809,22 @@ def _table_to_markdown(block: dict[str, Any]) -> str:
     header = rows[0]
     output = [f"| {' | '.join(header)} |", f"|{'|'.join(['---'] * len(header))}|"]
     for row in rows[1:]:
+        if _is_markdown_table_separator_row(row):
+            continue
         padded = row + [""] * (len(header) - len(row))
         output.append(f"| {' | '.join(padded)} |")
     return "\n".join(output)
+
+
+def _is_markdown_table_separator_row(row: list[str]) -> bool:
+    """Detect separator rows accidentally imported as Notion table data."""
+    if not row:
+        return False
+    for cell in row:
+        stripped = cell.strip()
+        if not re.fullmatch(r":?-{3,}:?", stripped):
+            return False
+    return True
 
 
 def block_to_markdown(block: dict[str, Any], indent: int = 0) -> str:

@@ -82,6 +82,21 @@ class NotionApiClient:
     def fetch_page(self, page_id: str) -> dict[str, Any] | None:
         return self.call("GET", f"pages/{page_id}")
 
+    def update_page(self, page_id: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+        return self.call("PATCH", f"pages/{page_id}", payload)
+
+    def update_page_title(self, page_id: str, title: str) -> dict[str, Any] | None:
+        payload = {
+            "properties": {
+                "title": {
+                    "title": [
+                        {"type": "text", "text": {"content": title}},
+                    ]
+                }
+            }
+        }
+        return self.update_page(page_id, payload)
+
     def fetch_block(self, block_id: str) -> dict[str, Any] | None:
         return self.call("GET", f"blocks/{block_id}")
 

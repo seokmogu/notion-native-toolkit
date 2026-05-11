@@ -120,6 +120,10 @@ upload = toolkit.client.create_file_upload("report.pdf")
 toolkit.client.send_file_upload(upload["id"], "report.pdf", file_bytes)
 ```
 
+CLI에서 Markdown을 Notion 페이지로 생성하거나 갱신할 때는 기본값으로 `blocks` 모드를 사용합니다. 이 모드는 Markdown 표를 Notion table block으로 변환하므로 표 구분선(`|---|`)이 본문 행으로 남는 문제를 피할 수 있습니다. Notion의 native Markdown endpoint가 꼭 필요할 때만 `--mode native`를 명시합니다.
+
+기존 페이지를 갱신하면서 Notion 페이지 제목도 함께 맞춰야 할 때는 `page update-from-markdown --title "문서 제목"`을 사용합니다.
+
 ### 3. 내부 API 사용
 
 ```python

@@ -8,11 +8,33 @@ from pathlib import Path
 from notion_native_toolkit.deploy import (
     DeployReport,
     DeployResult,
-    Section,
     _collect_md_files,
     _extract_title,
+    deploy_file,
     split_by_h1,
 )
+from notion_native_toolkit.mapping import PageMapping
+
+
+class FakeCliClient:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str]] = []
+
+    def pages_create(self, parent: str, markdown: str):
+        self.calls.append(("create", parent, markdown))
+        return {
+            "id": "created-page",
+            "url": "https://notion.so/created-page",
+            "title": "Guide",
+        }
+
+    def pages_edit(self, page_id: str, markdown: str):
+        self.calls.append(("edit", page_id, markdown))
+        return {
+            "id": page_id,
+            "url": "https://notion.so/existing-page",
+            "title": "Guide",
+        }
 
 
 class TestExtractTitle:
@@ -83,24 +105,16 @@ class TestCollectMdFiles:
 class TestDeployReport:
     def test_summary_counts(self) -> None:
         report = DeployReport()
-        report.results.append(
-            DeployResult("a.md", "id1", "url1", "A", "created", 5)
-        )
-        report.results.append(
-            DeployResult("b.md", "id2", "url2", "B", "updated", 3)
-        )
-        report.results.append(
-            DeployResult("c.md", "id3", "url3", "C", "skipped", 0)
-        )
+        report.results.append(DeployResult("a.md", "id1", "url1", "A", "created", 5))
+        report.results.append(DeployResult("b.md", "id2", "url2", "B", "updated", 3))
+        report.results.append(DeployResult("c.md", "id3", "url3", "C", "skipped", 0))
         assert report.created == 1
         assert report.updated == 1
         assert report.skipped == 1
 
     def test_to_dict(self) -> None:
         report = DeployReport()
-        report.results.append(
-            DeployResult("a.md", "id1", "url1", "A", "created", 5)
-        )
+        report.results.append(DeployResult("a.md", "id1", "url1", "A", "created", 5))
         report.errors.append({"file": "err.md", "error": "failed"})
         report.stale_pages.append("old.md")
         d = report.to_dict()
@@ -110,6 +124,88 @@ class TestDeployReport:
         assert len(d["results"]) == 1
         assert len(d["errors"]) == 1
         assert len(d["stale_pages"]) == 1
+
+
+class TestDeployFileCliBackend:
+    def test_cli_backend_creates_page_with_resolved_links(self, tmp_path) -> None:
+        guide = tmp_path / "guide.md"
+        guide.write_text("# Guide\n\nSee [Other](other.md).\n", encoding="utf-8")
+        mapping = PageMapping()
+        mapping.set(
+            "other.md",
+            "other-page",
+            "https://notion.so/other-page",
+            "Other",
+            "hash",
+        )
+        cli = FakeCliClient()
+
+        result = deploy_file(
+            file_path=guide,
+            project_root=tmp_path,
+            writer=None,
+            parent_page_id="parent-id",
+            mapping=mapping,
+            backend="cli",
+            cli_client=cli,
+        )
+
+        assert result.action == "created"
+        assert result.page_id == "created-page"
+        assert result.pending_links == []
+        assert cli.calls == [
+            (
+                "create",
+                "page:parentid",
+                "# Guide\n\nSee [Other](https://notion.so/other-page).\n",
+            )
+        ]
+        assert mapping.get("guide.md").page_id == "created-page"
+
+    def test_cli_backend_updates_existing_page(self, tmp_path) -> None:
+        guide = tmp_path / "guide.md"
+        guide.write_text("Body only\n", encoding="utf-8")
+        mapping = PageMapping()
+        mapping.set(
+            "guide.md",
+            "existing-page",
+            "https://notion.so/existing-page",
+            "Guide",
+            "old-hash",
+        )
+        cli = FakeCliClient()
+
+        result = deploy_file(
+            file_path=guide,
+            project_root=tmp_path,
+            writer=None,
+            parent_page_id="parent-id",
+            mapping=mapping,
+            force=True,
+            backend="cli",
+            cli_client=cli,
+        )
+
+        assert result.action == "updated"
+        assert cli.calls == [("edit", "existing-page", "# Guide\n\nBody only\n")]
+
+    def test_cli_backend_tracks_unresolved_markdown_links(self, tmp_path) -> None:
+        guide = tmp_path / "guide.md"
+        guide.write_text("# Guide\n\nSee [Missing](missing.md).\n", encoding="utf-8")
+        cli = FakeCliClient()
+
+        result = deploy_file(
+            file_path=guide,
+            project_root=tmp_path,
+            writer=None,
+            parent_page_id="parent-id",
+            mapping=PageMapping(),
+            backend="cli",
+            cli_client=cli,
+        )
+
+        assert result.pending_links
+        assert result.pending_links[0]["target"] == "missing.md"
 
 
 class TestSplitByH1:

@@ -1,0 +1,546 @@
+{
+  "output_dir": "docs/notion-api-capture/current",
+  "captured_at": "2026-06-23T14:54:00.278442+00:00",
+  "ntn_version": "ntn 0.17.0",
+  "targets": [
+    {
+      "path": "v1/blocks/meeting_notes/query",
+      "method": "POST"
+    },
+    {
+      "path": "v1/blocks/{block_id}",
+      "method": "DELETE"
+    },
+    {
+      "path": "v1/blocks/{block_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/blocks/{block_id}",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/blocks/{block_id}/children",
+      "method": "GET"
+    },
+    {
+      "path": "v1/blocks/{block_id}/children",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/comments",
+      "method": "GET"
+    },
+    {
+      "path": "v1/comments",
+      "method": "POST"
+    },
+    {
+      "path": "v1/comments/{comment_id}",
+      "method": "DELETE"
+    },
+    {
+      "path": "v1/comments/{comment_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/comments/{comment_id}",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/custom_emojis",
+      "method": "GET"
+    },
+    {
+      "path": "v1/data_sources",
+      "method": "POST"
+    },
+    {
+      "path": "v1/data_sources/{data_source_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/data_sources/{data_source_id}",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/data_sources/{data_source_id}/query",
+      "method": "POST"
+    },
+    {
+      "path": "v1/data_sources/{data_source_id}/templates",
+      "method": "GET"
+    },
+    {
+      "path": "v1/databases",
+      "method": "POST"
+    },
+    {
+      "path": "v1/databases/{database_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/databases/{database_id}",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/file_uploads",
+      "method": "GET"
+    },
+    {
+      "path": "v1/file_uploads",
+      "method": "POST"
+    },
+    {
+      "path": "v1/file_uploads/{file_upload_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/file_uploads/{file_upload_id}/complete",
+      "method": "POST"
+    },
+    {
+      "path": "v1/file_uploads/{file_upload_id}/send",
+      "method": "POST"
+    },
+    {
+      "path": "v1/pages",
+      "method": "POST"
+    },
+    {
+      "path": "v1/pages/{page_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/pages/{page_id}",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/pages/{page_id}/markdown",
+      "method": "GET"
+    },
+    {
+      "path": "v1/pages/{page_id}/markdown",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/pages/{page_id}/move",
+      "method": "POST"
+    },
+    {
+      "path": "v1/pages/{page_id}/properties/{property_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/search",
+      "method": "POST"
+    },
+    {
+      "path": "v1/users",
+      "method": "GET"
+    },
+    {
+      "path": "v1/users/me",
+      "method": "GET"
+    },
+    {
+      "path": "v1/users/{user_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/views",
+      "method": "GET"
+    },
+    {
+      "path": "v1/views",
+      "method": "POST"
+    },
+    {
+      "path": "v1/views/{view_id}",
+      "method": "DELETE"
+    },
+    {
+      "path": "v1/views/{view_id}",
+      "method": "GET"
+    },
+    {
+      "path": "v1/views/{view_id}",
+      "method": "PATCH"
+    },
+    {
+      "path": "v1/views/{view_id}/queries",
+      "method": "POST"
+    },
+    {
+      "path": "v1/views/{view_id}/queries/{query_id}",
+      "method": "DELETE"
+    },
+    {
+      "path": "v1/views/{view_id}/queries/{query_id}",
+      "method": "GET"
+    }
+  ],
+  "files": [
+    {
+      "kind": "api-index",
+      "path": "docs/notion-api-capture/current/api-index.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__blocks__meeting_notes__query.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__blocks__meeting_notes__query.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/delete-v1__blocks__block_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/delete-v1__blocks__block_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__blocks__block_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__blocks__block_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__blocks__block_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__blocks__block_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__blocks__block_id__children.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__blocks__block_id__children.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__blocks__block_id__children.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__blocks__block_id__children.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__comments.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__comments.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__comments.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__comments.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/delete-v1__comments__comment_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/delete-v1__comments__comment_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__comments__comment_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__comments__comment_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__comments__comment_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__comments__comment_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__custom_emojis.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__custom_emojis.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__data_sources.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__data_sources.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__data_sources__data_source_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__data_sources__data_source_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__data_sources__data_source_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__data_sources__data_source_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__data_sources__data_source_id__query.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__data_sources__data_source_id__query.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__data_sources__data_source_id__templates.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__data_sources__data_source_id__templates.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__databases.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__databases.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__databases__database_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__databases__database_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__databases__database_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__databases__database_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__file_uploads.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__file_uploads.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__file_uploads.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__file_uploads.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__file_uploads__file_upload_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__file_uploads__file_upload_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__file_uploads__file_upload_id__complete.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__file_uploads__file_upload_id__complete.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__file_uploads__file_upload_id__send.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__file_uploads__file_upload_id__send.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__pages.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__pages.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__pages__page_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__pages__page_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__pages__page_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__pages__page_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__pages__page_id__markdown.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__pages__page_id__markdown.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__pages__page_id__markdown.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__pages__page_id__markdown.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__pages__page_id__move.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__pages__page_id__move.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__pages__page_id__properties__property_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__pages__page_id__properties__property_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__search.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__search.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__users.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__users.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__users__me.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__users__me.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__users__user_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__users__user_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__views.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__views.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__views.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__views.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/delete-v1__views__view_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/delete-v1__views__view_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__views__view_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__views__view_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/patch-v1__views__view_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/patch-v1__views__view_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/post-v1__views__view_id__queries.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/post-v1__views__view_id__queries.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/delete-v1__views__view_id__queries__query_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/delete-v1__views__view_id__queries__query_id.json"
+    },
+    {
+      "kind": "docs",
+      "path": "docs/notion-api-capture/current/docs/get-v1__views__view_id__queries__query_id.md"
+    },
+    {
+      "kind": "spec",
+      "path": "docs/notion-api-capture/current/specs/get-v1__views__view_id__queries__query_id.json"
+    },
+    {
+      "kind": "manifest",
+      "path": "docs/notion-api-capture/current/manifest.json"
+    }
+  ],
+  "errors": []
+}

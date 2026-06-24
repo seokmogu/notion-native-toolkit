@@ -4,6 +4,7 @@ from .browser import NotionBrowserAutomation
 from .client import NotionApiClient
 from .credentials import resolve_credential
 from .internal import NotionInternalClient
+from .ntn import NotionCliClient
 from .profiles import WorkspaceProfile, get_profile
 from .writer import NotionWriter
 
@@ -15,6 +16,7 @@ class NotionToolkit:
         token_v2 = resolve_credential(profile.token_v2)
         self.browser = NotionBrowserAutomation(profile)
         self.client: NotionApiClient | None = None
+        self.cli = NotionCliClient(token=token)
         self.writer: NotionWriter | None = None
         self.internal: NotionInternalClient | None = None
         if token:
@@ -44,6 +46,13 @@ class NotionToolkit:
                 f"Profile '{self.profile.name}' does not have a usable API token"
             )
         return self.writer
+
+    def require_cli(self) -> NotionCliClient:
+        if not self.cli.is_available():
+            raise ValueError(
+                "Notion CLI executable `ntn` is not installed or not on PATH"
+            )
+        return self.cli
 
     def require_internal(self) -> NotionInternalClient:
         """Get internal API client. Requires token_v2 and space_id in profile."""

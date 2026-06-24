@@ -10,4 +10,5 @@ def test_browser_access_does_not_require_api_token() -> None:
     toolkit = NotionToolkit(profile)
     assert toolkit.client is None
     assert toolkit.writer is None
+    assert toolkit.cli.token is None
     assert toolkit.browser.profile.name == "browser-only"

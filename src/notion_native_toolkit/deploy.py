@@ -7,9 +7,10 @@ with idempotent page mapping and change detection.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .mapping import (
     PageMapping,
@@ -19,10 +20,13 @@ from .mapping import (
     save_mapping,
 )
 from .markdown import markdown_to_notion_blocks
-from .resolver import resolve_blocks_links
+from .ntn import NotionCliClient
+from .resolver import resolve_blocks_links, resolve_image_url, resolve_relative_link
 from .writer import NotionWriter
 
 logger = logging.getLogger(__name__)
+
+DeployBackend = Literal["blocks", "cli"]
 
 
 @dataclass
@@ -112,7 +116,9 @@ def split_by_h1(content: str) -> list[Section]:
             if current_lines or current_title:
                 section_content = "\n".join(current_lines).strip()
                 if section_content or current_title:
-                    sections.append(Section(title=current_title, content=section_content))
+                    sections.append(
+                        Section(title=current_title, content=section_content)
+                    )
             current_title = match.group(1).strip()
             current_lines = []
         else:
@@ -146,7 +152,11 @@ def _strip_leading_h1(content: str) -> str:
     result: list[str] = []
     h1_removed = False
     for line in lines:
-        if not h1_removed and line.strip().startswith("# ") and not line.strip().startswith("## "):
+        if (
+            not h1_removed
+            and line.strip().startswith("# ")
+            and not line.strip().startswith("## ")
+        ):
             h1_removed = True
             continue
         # Also skip blank lines immediately after the removed H1
@@ -171,13 +181,15 @@ def _collect_md_files(target: Path) -> list[Path]:
 def deploy_file(
     file_path: Path,
     project_root: Path,
-    writer: NotionWriter,
+    writer: NotionWriter | None,
     parent_page_id: str,
     mapping: PageMapping,
     base_url: str | None = None,
     force: bool = False,
     dry_run: bool = False,
     tree: bool = False,
+    backend: DeployBackend = "blocks",
+    cli_client: NotionCliClient | None = None,
 ) -> DeployResult:
     """Deploy a single Markdown file to Notion.
 
@@ -211,6 +223,29 @@ def deploy_file(
             title=title,
             action="skipped",
         )
+
+    if backend == "cli":
+        if tree:
+            raise ValueError("The cli deploy backend does not support tree mode yet")
+        if cli_client is None:
+            raise ValueError("cli_client is required when backend='cli'")
+        return _deploy_file_cli(
+            file_path=file_path,
+            project_root=project_root,
+            cli_client=cli_client,
+            parent_page_id=parent_page_id,
+            mapping=mapping,
+            base_url=base_url,
+            dry_run=dry_run,
+            existing=existing,
+            relative_path=relative_path,
+            content=content,
+            title=title,
+            content_hash=content_hash,
+        )
+
+    if writer is None:
+        raise ValueError("writer is required when backend='blocks'")
 
     # FR-05: Tree mode - split by H1 and create sub-pages
     if tree:
@@ -360,13 +395,14 @@ def _deploy_landing(
         )
 
     # Update page title to match README H1
-    writer.client.update_page(parent_page_id, {
-        "properties": {
-            "title": {
-                "title": [{"type": "text", "text": {"content": title}}]
+    writer.client.update_page(
+        parent_page_id,
+        {
+            "properties": {
+                "title": {"title": [{"type": "text", "text": {"content": title}}]}
             }
-        }
-    })
+        },
+    )
 
     # Collect existing child page IDs before clearing
     existing_children = writer.client.fetch_children(parent_page_id) or []
@@ -403,6 +439,157 @@ def _deploy_landing(
     )
 
 
+_MARKDOWN_LINK_RE = re.compile(
+    r"(?P<bang>!?)\[(?P<label>[^\]]*)\]\((?P<target>[^)]+)\)"
+)
+
+
+def _deploy_file_cli(
+    file_path: Path,
+    project_root: Path,
+    cli_client: NotionCliClient,
+    parent_page_id: str,
+    mapping: PageMapping,
+    base_url: str | None,
+    dry_run: bool,
+    existing: Any,
+    relative_path: str,
+    content: str,
+    title: str,
+    content_hash: str,
+) -> DeployResult:
+    pending_links: list[dict[str, str]] = []
+    markdown = _resolve_markdown_links_for_cli(
+        content=content,
+        source_file=file_path,
+        project_root=project_root,
+        mapping=mapping,
+        base_url=base_url,
+        pending_links=pending_links,
+    )
+    markdown = _ensure_leading_h1(markdown, title)
+
+    if dry_run:
+        action = "would_create" if existing is None else "would_update"
+        return DeployResult(
+            file_path=relative_path,
+            page_id=existing.page_id if existing else "",
+            url=existing.url if existing else "",
+            title=title,
+            action=action,
+            block_count=0,
+            pending_links=pending_links,
+        )
+
+    if existing is None:
+        payload = cli_client.pages_create(_page_parent_ref(parent_page_id), markdown)
+        page_id, url, output_title = _read_cli_page_payload(payload, title)
+        mapping.set(relative_path, page_id, url, output_title, content_hash)
+        return DeployResult(
+            file_path=relative_path,
+            page_id=page_id,
+            url=url,
+            title=output_title,
+            action="created",
+            block_count=0,
+            pending_links=pending_links,
+        )
+
+    payload = cli_client.pages_edit(existing.page_id, markdown)
+    page_id, url, output_title = _read_cli_page_payload(
+        payload,
+        title,
+        fallback_page_id=existing.page_id,
+        fallback_url=existing.url,
+    )
+    mapping.set(relative_path, page_id, url, output_title, content_hash)
+    return DeployResult(
+        file_path=relative_path,
+        page_id=page_id,
+        url=url,
+        title=output_title,
+        action="updated",
+        block_count=0,
+        pending_links=pending_links,
+    )
+
+
+def _resolve_markdown_links_for_cli(
+    content: str,
+    source_file: Path,
+    project_root: Path,
+    mapping: PageMapping,
+    base_url: str | None,
+    pending_links: list[dict[str, str]],
+) -> str:
+    def replace(match: re.Match[str]) -> str:
+        bang = match.group("bang")
+        label = match.group("label")
+        target = match.group("target").strip()
+        if bang:
+            resolved, _local_path = resolve_image_url(
+                target,
+                source_file,
+                project_root,
+                base_url,
+            )
+        else:
+            resolved = resolve_relative_link(
+                target,
+                source_file,
+                project_root,
+                mapping,
+                base_url,
+                pending_links,
+            )
+        return f"{bang}[{label}]({resolved})"
+
+    return _MARKDOWN_LINK_RE.sub(replace, content)
+
+
+def _ensure_leading_h1(content: str, title: str) -> str:
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("# ") and not stripped.startswith("## "):
+            return content
+        break
+    return f"# {title}\n\n{content.lstrip()}"
+
+
+def _page_parent_ref(page_id: str) -> str:
+    if page_id.startswith(("page:", "database:", "data-source:")):
+        return page_id
+    return f"page:{page_id.replace('-', '')}"
+
+
+def _read_cli_page_payload(
+    payload: object,
+    fallback_title: str,
+    fallback_page_id: str = "",
+    fallback_url: str = "",
+) -> tuple[str, str, str]:
+    if not isinstance(payload, dict):
+        if fallback_page_id:
+            return fallback_page_id, fallback_url, fallback_title
+        raise ValueError("ntn page command did not return a JSON object")
+    page_id = _read_first_str(payload, "page_id", "id") or fallback_page_id
+    if not page_id:
+        raise ValueError("ntn page command did not return a page id")
+    url = _read_first_str(payload, "url", "public_url") or fallback_url
+    title = _read_first_str(payload, "title", "name") or fallback_title
+    return page_id, url, title
+
+
+def _read_first_str(payload: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
 def _deploy_tree(
     file_path: Path,
     relative_path: str,
@@ -424,14 +611,19 @@ def _deploy_tree(
     if len(sections) <= 1:
         pending_links: list[dict[str, str]] = []
         blocks, md_pending = markdown_to_notion_blocks(
-            content, source_file_path=str(file_path),
+            content,
+            source_file_path=str(file_path),
             mapping={"page_mappings": mapping.to_dict()},
             project_root=project_root,
         )
         pending_links.extend(md_pending)
         resolve_blocks_links(
-            blocks, source_file=file_path, project_root=project_root,
-            mapping=mapping, base_url=base_url, pending_links=pending_links,
+            blocks,
+            source_file=file_path,
+            project_root=project_root,
+            mapping=mapping,
+            base_url=base_url,
+            pending_links=pending_links,
             image_uploader=writer,
         )
         if dry_run:
@@ -440,22 +632,40 @@ def _deploy_tree(
                 file_path=relative_path,
                 page_id=existing.page_id if existing else "",
                 url=existing.url if existing else "",
-                title=title, action=action,
-                block_count=len(blocks), pending_links=pending_links,
+                title=title,
+                action=action,
+                block_count=len(blocks),
+                pending_links=pending_links,
             )
         if existing is None:
-            created = writer.create_page(parent_page_id=parent_page_id, title=title, blocks=blocks)
-            mapping.set(relative_path, created.page_id, created.url, title, content_hash)
+            created = writer.create_page(
+                parent_page_id=parent_page_id, title=title, blocks=blocks
+            )
+            mapping.set(
+                relative_path, created.page_id, created.url, title, content_hash
+            )
             return DeployResult(
-                file_path=relative_path, page_id=created.page_id, url=created.url,
-                title=title, action="created", block_count=len(blocks), pending_links=pending_links,
+                file_path=relative_path,
+                page_id=created.page_id,
+                url=created.url,
+                title=title,
+                action="created",
+                block_count=len(blocks),
+                pending_links=pending_links,
             )
         else:
             writer.replace_page_content(existing.page_id, blocks)
-            mapping.set(relative_path, existing.page_id, existing.url, title, content_hash)
+            mapping.set(
+                relative_path, existing.page_id, existing.url, title, content_hash
+            )
             return DeployResult(
-                file_path=relative_path, page_id=existing.page_id, url=existing.url,
-                title=title, action="updated", block_count=len(blocks), pending_links=pending_links,
+                file_path=relative_path,
+                page_id=existing.page_id,
+                url=existing.url,
+                title=title,
+                action="updated",
+                block_count=len(blocks),
+                pending_links=pending_links,
             )
 
     # Multiple H1 sections: create parent page + sub-pages
@@ -470,8 +680,10 @@ def _deploy_tree(
         action = "would_create" if parent_existing is None else "would_update"
         for section in sections:
             sec_blocks, sec_pending = markdown_to_notion_blocks(
-                section.content, source_file_path=str(file_path),
-                mapping={"page_mappings": mapping.to_dict()}, project_root=project_root,
+                section.content,
+                source_file_path=str(file_path),
+                mapping={"page_mappings": mapping.to_dict()},
+                project_root=project_root,
             )
             total_blocks += len(sec_blocks)
             all_pending.extend(sec_pending)
@@ -479,14 +691,18 @@ def _deploy_tree(
             file_path=relative_path,
             page_id=parent_existing.page_id if parent_existing else "",
             url=parent_existing.url if parent_existing else "",
-            title=title, action=action,
-            block_count=total_blocks, pending_links=all_pending,
+            title=title,
+            action=action,
+            block_count=total_blocks,
+            pending_links=all_pending,
         )
 
     # Create parent page (TOC-like, with links to sub-pages)
     if parent_existing is None:
         parent_created = writer.create_page(
-            parent_page_id=parent_page_id, title=title, blocks=[],
+            parent_page_id=parent_page_id,
+            title=title,
+            blocks=[],
         )
         parent_pid = parent_created.page_id
         parent_url = parent_created.url
@@ -505,13 +721,19 @@ def _deploy_tree(
 
         sec_pending: list[dict[str, str]] = []
         sec_blocks, md_pending = markdown_to_notion_blocks(
-            section.content, source_file_path=str(file_path),
-            mapping={"page_mappings": mapping.to_dict()}, project_root=project_root,
+            section.content,
+            source_file_path=str(file_path),
+            mapping={"page_mappings": mapping.to_dict()},
+            project_root=project_root,
         )
         sec_pending.extend(md_pending)
         resolve_blocks_links(
-            sec_blocks, source_file=file_path, project_root=project_root,
-            mapping=mapping, base_url=base_url, pending_links=sec_pending,
+            sec_blocks,
+            source_file=file_path,
+            project_root=project_root,
+            mapping=mapping,
+            base_url=base_url,
+            pending_links=sec_pending,
             image_uploader=writer,
         )
         total_blocks += len(sec_blocks)
@@ -519,17 +741,27 @@ def _deploy_tree(
 
         if sec_existing is None:
             sec_created = writer.create_page(
-                parent_page_id=parent_pid, title=sec_title, blocks=sec_blocks,
+                parent_page_id=parent_pid,
+                title=sec_title,
+                blocks=sec_blocks,
             )
-            mapping.set(sec_key, sec_created.page_id, sec_created.url, sec_title, content_hash)
+            mapping.set(
+                sec_key, sec_created.page_id, sec_created.url, sec_title, content_hash
+            )
         else:
             writer.replace_page_content(sec_existing.page_id, sec_blocks)
-            mapping.set(sec_key, sec_existing.page_id, sec_existing.url, sec_title, content_hash)
+            mapping.set(
+                sec_key, sec_existing.page_id, sec_existing.url, sec_title, content_hash
+            )
 
     return DeployResult(
-        file_path=relative_path, page_id=parent_pid, url=parent_url,
-        title=title, action="created" if parent_existing is None else "updated",
-        block_count=total_blocks, pending_links=all_pending,
+        file_path=relative_path,
+        page_id=parent_pid,
+        url=parent_url,
+        title=title,
+        action="created" if parent_existing is None else "updated",
+        block_count=total_blocks,
+        pending_links=all_pending,
     )
 
 
@@ -583,6 +815,8 @@ def _deploy_dir(
     dry_run: bool = False,
     is_root: bool = False,
     landing_filename: str = "readme.md",
+    backend: DeployBackend = "blocks",
+    cli_client: NotionCliClient | None = None,
 ) -> None:
     """Deploy a single directory level to Notion (recursive).
 
@@ -627,6 +861,8 @@ def _deploy_dir(
             dry_run=dry_run,
             is_root=False,
             landing_filename=landing_filename,
+            backend=backend,
+            cli_client=cli_client,
         )
 
     # Step 2: Deploy MD files (README excluded)
@@ -641,16 +877,21 @@ def _deploy_dir(
                 base_url=base_url,
                 force=force,
                 dry_run=dry_run,
+                backend=backend,
+                cli_client=cli_client,
             )
             report.results.append(result)
-            logger.info("%s: %s -> %s", result.action.upper(), result.file_path, result.url)
+            logger.info(
+                "%s: %s -> %s", result.action.upper(), result.file_path, result.url
+            )
         except Exception as e:
             report.errors.append({"file": str(md_file), "error": str(e)})
             logger.error("Failed to deploy %s: %s", md_file, e)
 
     # Step 2.5: Re-deploy pages that had pending links (now all sibling URLs exist in mapping)
     pages_with_pending = [
-        r for r in report.results
+        r
+        for r in report.results
         if r.pending_links and r.file_path != (readme_file.name if readme_file else "")
     ]
     if pages_with_pending and not dry_run:
@@ -668,13 +909,19 @@ def _deploy_dir(
                     base_url=base_url,
                     force=True,
                     dry_run=False,
+                    backend=backend,
+                    cli_client=cli_client,
                 )
                 # Update the result in report
                 for i, r in enumerate(report.results):
                     if r.file_path == re_result.file_path:
                         report.results[i] = re_result
                         break
-                logger.info("RELINK: %s -> pending=%d", re_result.file_path, len(re_result.pending_links))
+                logger.info(
+                    "RELINK: %s -> pending=%d",
+                    re_result.file_path,
+                    len(re_result.pending_links),
+                )
             except Exception as e:
                 logger.warning("Relink failed for %s: %s", result.file_path, e)
 
@@ -714,13 +961,15 @@ def _deploy_dir(
 
 def deploy(
     target: Path,
-    writer: NotionWriter,
+    writer: NotionWriter | None,
     parent_page_id: str,
     base_url: str | None = None,
     force: bool = False,
     dry_run: bool = False,
     tree: bool = False,
     landing_filename: str = "readme.md",
+    backend: DeployBackend = "blocks",
+    cli_client: NotionCliClient | None = None,
 ) -> DeployReport:
     """Deploy a file or directory of Markdown files to Notion.
 
@@ -738,6 +987,8 @@ def deploy(
         force: Force re-deploy all files.
         dry_run: Convert without calling Notion API.
         tree: Split single files by H1 into sub-pages.
+        backend: Page content writer backend.
+        cli_client: Notion CLI client when backend is "cli".
 
     Returns:
         DeployReport with results and summary.
@@ -760,6 +1011,8 @@ def deploy(
                 force=force,
                 dry_run=dry_run,
                 tree=tree,
+                backend=backend,
+                cli_client=cli_client,
             )
             report.results.append(result)
         except Exception as e:
@@ -776,6 +1029,8 @@ def deploy(
         return report
 
     mapping = load_mapping(project_root)
+    if writer is None:
+        raise ValueError("writer is required for directory deployments")
 
     # Detect stale pages
     current_relative_paths = set()
@@ -812,6 +1067,8 @@ def deploy(
         dry_run=dry_run,
         is_root=True,
         landing_filename=landing_filename,
+        backend=backend,
+        cli_client=cli_client,
     )
 
     # Save mapping

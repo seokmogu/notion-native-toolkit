@@ -1,0 +1,2574 @@
+{
+  "components": {
+    "parameters": {
+      "notionVersion": {
+        "description": "The [API version](/reference/versioning) to use for this request. The latest version is `2026-03-11`.",
+        "in": "header",
+        "name": "Notion-Version",
+        "required": true,
+        "schema": {
+          "enum": [
+            "2026-03-11"
+          ]
+        }
+      }
+    },
+    "schemas": {
+      "boardViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "card_layout": {
+            "description": "Card layout mode (list shows all properties, compact shows inline).",
+            "enum": [
+              "list",
+              "compact"
+            ],
+            "type": "string"
+          },
+          "cover": {
+            "$ref": "#/components/schemas/coverConfigResponse",
+            "description": "Card cover/preview image configuration."
+          },
+          "cover_aspect": {
+            "description": "Cover image aspect ratio.",
+            "enum": [
+              "contain",
+              "cover"
+            ],
+            "type": "string"
+          },
+          "cover_size": {
+            "description": "Cover image size.",
+            "enum": [
+              "small",
+              "medium",
+              "large"
+            ],
+            "type": "string"
+          },
+          "group_by": {
+            "$ref": "#/components/schemas/groupByConfigResponse",
+            "description": "Column (horizontal) grouping - required for board view."
+          },
+          "properties": {
+            "description": "Properties to display on each card.",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "sub_group_by": {
+            "$ref": "#/components/schemas/groupByConfigResponse",
+            "description": "Sub-grouping (vertical swimlanes within columns)."
+          },
+          "type": {
+            "const": "board",
+            "description": "The view configuration type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "group_by"
+        ],
+        "type": "object"
+      },
+      "calendarViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "date_property_id": {
+            "description": "Date property used to position items on the calendar - required.",
+            "type": "string"
+          },
+          "date_property_name": {
+            "description": "Date property name (convenience field).",
+            "type": "string"
+          },
+          "properties": {
+            "description": "Properties to display on calendar event cards.",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "show_weekends": {
+            "description": "Whether to show weekend days.",
+            "type": "boolean"
+          },
+          "type": {
+            "const": "calendar",
+            "description": "The view configuration type.",
+            "type": "string"
+          },
+          "view_range": {
+            "description": "Calendar view range.",
+            "enum": [
+              "week",
+              "month"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "date_property_id"
+        ],
+        "type": "object"
+      },
+      "chartAggregationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "aggregator": {
+            "description": "The aggregation operator. \"count\" counts all rows and does not require a property_id. All other operators require a property_id.",
+            "enum": [
+              "count",
+              "count_values",
+              "sum",
+              "average",
+              "median",
+              "min",
+              "max",
+              "range",
+              "unique",
+              "empty",
+              "not_empty",
+              "percent_empty",
+              "percent_not_empty",
+              "checked",
+              "unchecked",
+              "percent_checked",
+              "percent_unchecked",
+              "earliest_date",
+              "latest_date",
+              "date_range"
+            ],
+            "type": "string"
+          },
+          "property_id": {
+            "description": "The property to aggregate on. Required for all operators except \"count\".",
+            "type": "string"
+          }
+        },
+        "required": [
+          "aggregator"
+        ],
+        "type": "object"
+      },
+      "chartReferenceLineResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "description": "Color of the reference line.",
+            "enum": [
+              "gray",
+              "lightgray",
+              "brown",
+              "yellow",
+              "orange",
+              "green",
+              "blue",
+              "purple",
+              "pink",
+              "red"
+            ],
+            "type": "string"
+          },
+          "dash_style": {
+            "description": "Line style: \"solid\" for a continuous line, \"dash\" for a dashed line.",
+            "enum": [
+              "solid",
+              "dash"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the reference line.",
+            "type": "string"
+          },
+          "label": {
+            "description": "Label displayed alongside the reference line.",
+            "type": "string"
+          },
+          "value": {
+            "description": "The y-axis value where the reference line is drawn.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "value",
+          "label",
+          "color",
+          "dash_style"
+        ],
+        "type": "object"
+      },
+      "chartViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "axis_labels": {
+            "description": "Which axis labels to display.",
+            "enum": [
+              "none",
+              "x_axis",
+              "y_axis",
+              "both"
+            ],
+            "type": "string"
+          },
+          "caption": {
+            "description": "Text caption displayed below the chart. Null when no caption is shown.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chart_type": {
+            "description": "The chart type: column (vertical bars), bar (horizontal bars), line, donut, or number (single value display).",
+            "enum": [
+              "column",
+              "bar",
+              "line",
+              "donut",
+              "number"
+            ],
+            "type": "string"
+          },
+          "color_by_value": {
+            "description": "Whether chart elements are colored by their numeric value (gradient coloring).",
+            "type": "boolean"
+          },
+          "color_theme": {
+            "description": "Color theme for the chart.",
+            "enum": [
+              "gray",
+              "blue",
+              "yellow",
+              "green",
+              "purple",
+              "teal",
+              "orange",
+              "pink",
+              "red",
+              "auto",
+              "colorful"
+            ],
+            "type": "string"
+          },
+          "cumulative": {
+            "description": "Whether to show cumulative values (line charts only).",
+            "type": "boolean"
+          },
+          "donut_labels": {
+            "description": "What to display on donut chart slices.",
+            "enum": [
+              "none",
+              "value",
+              "name",
+              "name_and_value"
+            ],
+            "type": "string"
+          },
+          "grid_lines": {
+            "description": "Which grid lines to display.",
+            "enum": [
+              "none",
+              "horizontal",
+              "vertical",
+              "both"
+            ],
+            "type": "string"
+          },
+          "group_style": {
+            "description": "How grouped/stacked bars are displayed. \"normal\" stacks values, \"percent\" normalizes to 100%, \"side_by_side\" places bars next to each other.",
+            "enum": [
+              "normal",
+              "percent",
+              "side_by_side"
+            ],
+            "type": "string"
+          },
+          "height": {
+            "description": "Chart height.",
+            "enum": [
+              "small",
+              "medium",
+              "large",
+              "extra_large"
+            ],
+            "type": "string"
+          },
+          "hide_empty_groups": {
+            "description": "Whether to hide groups with no data on the x-axis.",
+            "type": "boolean"
+          },
+          "hide_line_fill_area": {
+            "description": "Whether to hide the shaded area under the line (line charts only).",
+            "type": "boolean"
+          },
+          "hide_title": {
+            "description": "Whether to hide the title label (number charts only).",
+            "type": "boolean"
+          },
+          "legend_position": {
+            "description": "Legend display position. \"off\" hides the legend.",
+            "enum": [
+              "off",
+              "bottom",
+              "side"
+            ],
+            "type": "string"
+          },
+          "reference_lines": {
+            "description": "Reference lines drawn on the chart. Null when no reference lines are configured.",
+            "oneOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/chartReferenceLineResponse"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "show_data_labels": {
+            "description": "Whether to show data value labels on chart elements.",
+            "type": "boolean"
+          },
+          "smooth_line": {
+            "description": "Whether to use smooth curves (line charts only).",
+            "type": "boolean"
+          },
+          "sort": {
+            "description": "Sort order for chart data.",
+            "enum": [
+              "manual",
+              "x_ascending",
+              "x_descending",
+              "y_ascending",
+              "y_descending"
+            ],
+            "type": "string"
+          },
+          "stack_by": {
+            "description": "Stack-by grouping configuration for stacked/grouped bar charts (column/bar/line only). Null when not stacked.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/groupByConfigResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "const": "chart",
+            "description": "The view configuration type.",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/chartAggregationResponse",
+            "description": "Aggregation configuration for number charts (single value display)."
+          },
+          "x_axis": {
+            "description": "X-axis grouping configuration for column/bar/line/donut charts using grouped data. Null when using results (raw property values) mode.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/groupByConfigResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "x_axis_property_id": {
+            "description": "Property ID for the x-axis name values when using results (raw property values) mode.",
+            "type": "string"
+          },
+          "y_axis": {
+            "description": "Y-axis aggregation for column/bar/line/donut charts using grouped data. Null when using results mode.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/chartAggregationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "y_axis_max": {
+            "description": "Custom maximum value for the y-axis. Null clears the override.",
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "y_axis_min": {
+            "description": "Custom minimum value for the y-axis. Null clears the override.",
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "y_axis_property_id": {
+            "description": "Property ID for the y-axis numeric values when using results (raw property values) mode.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "chart_type"
+        ],
+        "type": "object"
+      },
+      "checkboxGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups (only manual for checkbox)."
+          },
+          "type": {
+            "const": "checkbox",
+            "description": "The property type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "coverConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "property_id": {
+            "description": "Property ID when type is \"property\".",
+            "type": "string"
+          },
+          "type": {
+            "description": "Source of the cover image.",
+            "enum": [
+              "page_cover",
+              "page_content",
+              "page_content_first",
+              "property"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "dashboardRowResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "description": "Fixed height of the row in pixels.",
+            "type": "integer"
+          },
+          "id": {
+            "description": "The ID of this row module.",
+            "type": "string"
+          },
+          "widgets": {
+            "description": "The widget modules within this row.",
+            "items": {
+              "$ref": "#/components/schemas/dashboardWidgetResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "widgets"
+        ],
+        "type": "object"
+      },
+      "dashboardViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "description": "The rows that make up the dashboard layout. Each row contains one or more widget modules.",
+            "items": {
+              "$ref": "#/components/schemas/dashboardRowResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "type": {
+            "const": "dashboard",
+            "description": "The view configuration type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "dashboardWidgetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The ID of this widget module.",
+            "type": "string"
+          },
+          "row_index": {
+            "description": "The 0-based index of the row this widget belongs to. Widgets in the same row share the same row_index.",
+            "type": "integer"
+          },
+          "view_id": {
+            "description": "The ID of the collection view rendered by this widget.",
+            "type": "string"
+          },
+          "width": {
+            "description": "Width of the widget in a 12-column grid (1-12). 12 means full width.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "view_id"
+        ],
+        "type": "object"
+      },
+      "dataSourceViewObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration": {
+            "description": "View presentation configuration.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/viewConfigResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_by": {
+            "description": "The user who created the view, or null if not available.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/partialUserObjectResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_time": {
+            "description": "The time when the view was created.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "dashboard_view_id": {
+            "description": "For dashboard widget views, the ID of the parent dashboard view. Only present when this view is a widget inside a dashboard.",
+            "type": "string"
+          },
+          "data_source_id": {
+            "description": "The ID of the data source this view is scoped to, or null for dashboard views.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "filter": {
+            "description": "The filter applied to this view (same shape as data source query filter).",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/viewFilterResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the view."
+          },
+          "last_edited_by": {
+            "description": "The user who last edited the view, or null if not available.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/partialUserObjectResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_edited_time": {
+            "description": "The time when the view was last edited.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "description": "The name of the view.",
+            "type": "string"
+          },
+          "object": {
+            "const": "view",
+            "description": "The object type name.",
+            "type": "string"
+          },
+          "parent": {
+            "$ref": "#/components/schemas/databaseParentResponse",
+            "description": "The parent database of the view."
+          },
+          "quick_filters": {
+            "description": "Quick filters pinned to the view's filter bar. Keys are property IDs. Values are filter conditions (same shape as a property filter without the property field). Null when no quick filters are set.",
+            "oneOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/quickFilterConditionResponse"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sorts": {
+            "description": "The sorts applied to this view (same shape as data source query sorts).",
+            "oneOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/viewSortResponse"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "description": "The view type.",
+            "enum": [
+              "table",
+              "board",
+              "list",
+              "calendar",
+              "timeline",
+              "gallery",
+              "form",
+              "chart",
+              "map",
+              "dashboard"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "Canonical deep link to the view in Notion.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "parent",
+          "name",
+          "type",
+          "created_time",
+          "last_edited_time",
+          "url"
+        ],
+        "type": "object"
+      },
+      "databaseParentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "database_id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the parent database."
+          },
+          "type": {
+            "const": "database_id",
+            "description": "The parent type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "database_id"
+        ],
+        "type": "object"
+      },
+      "dateGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "group_by": {
+            "description": "Granularity for date grouping.",
+            "enum": [
+              "relative",
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "type": "string"
+          },
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups (no manual sort for dates)."
+          },
+          "start_day_of_week": {
+            "description": "Start day of week for week grouping (0 = Sunday, 1 = Monday).",
+            "enum": [
+              0,
+              1
+            ],
+            "type": "number"
+          },
+          "type": {
+            "description": "The property type for grouping.",
+            "enum": [
+              "date",
+              "created_time",
+              "last_edited_time"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "group_by",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "error_api_400": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_json",
+                  "invalid_request_url",
+                  "invalid_request",
+                  "missing_version",
+                  "validation_error"
+                ]
+              },
+              "status": {
+                "const": 400
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_401": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "unauthorized"
+                ]
+              },
+              "status": {
+                "const": 401
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_403": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "restricted_resource"
+                ]
+              },
+              "status": {
+                "const": 403
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_404": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "object_not_found"
+                ]
+              },
+              "status": {
+                "const": 404
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_409": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "conflict_error",
+                  "row_limit_exceeded"
+                ]
+              },
+              "status": {
+                "const": 409
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_429": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "rate_limited"
+                ]
+              },
+              "status": {
+                "const": 429
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_500": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "internal_server_error"
+                ]
+              },
+              "status": {
+                "const": 500
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_503": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "service_unavailable"
+                ]
+              },
+              "status": {
+                "const": 503
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_504": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "gateway_timeout"
+                ]
+              },
+              "status": {
+                "const": 504
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_529": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "service_overload"
+                ]
+              },
+              "status": {
+                "const": 529
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "formViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "anonymous_submissions": {
+            "description": "Whether anonymous (non-logged-in) submissions are allowed.",
+            "type": "boolean"
+          },
+          "is_form_closed": {
+            "description": "Whether the form is closed for submissions.",
+            "type": "boolean"
+          },
+          "submission_permissions": {
+            "description": "Permission level granted to the submitter on the created page after form submission.",
+            "enum": [
+              "none",
+              "comment_only",
+              "reader",
+              "read_and_write",
+              "editor"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "const": "form",
+            "description": "The view configuration type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "formulaCheckboxSubGroupByResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups (only manual for checkbox)."
+          },
+          "type": {
+            "const": "checkbox",
+            "description": "The formula result type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "formulaDateSubGroupByResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "group_by": {
+            "description": "Granularity for date grouping.",
+            "enum": [
+              "relative",
+              "day",
+              "week",
+              "month",
+              "year"
+            ],
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups."
+          },
+          "start_day_of_week": {
+            "description": "Start day of week for week grouping (0 = Sunday, 1 = Monday).",
+            "enum": [
+              0,
+              1
+            ],
+            "type": "number"
+          },
+          "type": {
+            "const": "date",
+            "description": "The formula result type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "group_by",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "formulaGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "group_by": {
+            "$ref": "#/components/schemas/formulaSubGroupByResponse",
+            "description": "Sub-group-by configuration based on the formula result type."
+          },
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID of the formula to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "type": {
+            "const": "formula",
+            "description": "The property type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "group_by"
+        ],
+        "type": "object"
+      },
+      "formulaNumberSubGroupByResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "range_end": {
+            "description": "End of the range for number grouping buckets.",
+            "type": "integer"
+          },
+          "range_size": {
+            "description": "Size of each bucket in number grouping.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "range_start": {
+            "description": "Start of the range for number grouping buckets.",
+            "type": "integer"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups (ascending or descending only)."
+          },
+          "type": {
+            "const": "number",
+            "description": "The formula result type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "formulaSubGroupByResponse": {
+        "description": "Sub-group-by configuration for formula properties based on result type.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/formulaDateSubGroupByResponse"
+          },
+          {
+            "$ref": "#/components/schemas/formulaTextSubGroupByResponse"
+          },
+          {
+            "$ref": "#/components/schemas/formulaNumberSubGroupByResponse"
+          },
+          {
+            "$ref": "#/components/schemas/formulaCheckboxSubGroupByResponse"
+          }
+        ]
+      },
+      "formulaTextSubGroupByResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "group_by": {
+            "description": "How to group text values. \"exact\" = exact match, \"alphabet_prefix\" = first letter.",
+            "enum": [
+              "exact",
+              "alphabet_prefix"
+            ],
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups."
+          },
+          "type": {
+            "const": "text",
+            "description": "The formula result type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "group_by",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "galleryViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "card_layout": {
+            "description": "Card layout mode (list shows all properties, compact shows inline).",
+            "enum": [
+              "list",
+              "compact"
+            ],
+            "type": "string"
+          },
+          "cover": {
+            "$ref": "#/components/schemas/coverConfigResponse",
+            "description": "Card cover/preview image configuration."
+          },
+          "cover_aspect": {
+            "description": "Cover image aspect ratio.",
+            "enum": [
+              "contain",
+              "cover"
+            ],
+            "type": "string"
+          },
+          "cover_size": {
+            "description": "Cover image size.",
+            "enum": [
+              "small",
+              "medium",
+              "large"
+            ],
+            "type": "string"
+          },
+          "properties": {
+            "description": "Properties to display on gallery cards.",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "type": {
+            "const": "gallery",
+            "description": "The view configuration type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "groupByConfigResponse": {
+        "description": "Group-by configuration based on property type.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/selectGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/statusGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/personGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/relationGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/dateGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/textGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/numberGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/checkboxGroupByConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/formulaGroupByConfigResponse"
+          }
+        ]
+      },
+      "groupSortResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Sort direction for groups.",
+            "enum": [
+              "manual",
+              "ascending",
+              "descending"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "idRequest": {
+        "type": "string"
+      },
+      "idResponse": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "listViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "properties": {
+            "description": "Properties to display in list items.",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "type": {
+            "const": "list",
+            "description": "The view configuration type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "mapViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "description": "Map display height.",
+            "enum": [
+              "small",
+              "medium",
+              "large",
+              "extra_large"
+            ],
+            "type": "string"
+          },
+          "map_by": {
+            "description": "Property ID of the location property used to position items on the map.",
+            "type": "string"
+          },
+          "map_by_property_name": {
+            "description": "Map-by property name (convenience field).",
+            "type": "string"
+          },
+          "properties": {
+            "description": "Properties to display on map pin cards.",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "type": {
+            "const": "map",
+            "description": "The view configuration type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "numberGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "range_end": {
+            "description": "End of the range for number grouping buckets.",
+            "type": "integer"
+          },
+          "range_size": {
+            "description": "Size of each bucket in number grouping.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "range_start": {
+            "description": "Start of the range for number grouping buckets.",
+            "type": "integer"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups (ascending or descending only)."
+          },
+          "type": {
+            "const": "number",
+            "description": "The property type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "partialDataSourceViewObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the view."
+          },
+          "object": {
+            "const": "view",
+            "description": "The object type name.",
+            "type": "string"
+          },
+          "parent": {
+            "$ref": "#/components/schemas/databaseParentResponse",
+            "description": "The parent database of the view."
+          },
+          "type": {
+            "description": "The view type.",
+            "enum": [
+              "table",
+              "board",
+              "list",
+              "calendar",
+              "timeline",
+              "gallery",
+              "form",
+              "chart",
+              "map",
+              "dashboard"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "parent",
+          "type"
+        ],
+        "type": "object"
+      },
+      "partialUserObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/idResponse"
+          },
+          "object": {
+            "const": "user",
+            "description": "Always `user`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "object"
+        ],
+        "type": "object"
+      },
+      "personGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups (only manual supported)."
+          },
+          "type": {
+            "description": "The property type for grouping.",
+            "enum": [
+              "person",
+              "created_by",
+              "last_edited_by"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "propertySortResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "description": "Sort direction.",
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "type": "string"
+          },
+          "property": {
+            "description": "The name or ID of the property to sort by.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "property",
+          "direction"
+        ],
+        "type": "object"
+      },
+      "publicApiCommonErrorResponse": {
+        "properties": {
+          "additional_data": {
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          },
+          "object": {
+            "const": "error"
+          }
+        },
+        "required": [
+          "object",
+          "message"
+        ],
+        "type": "object"
+      },
+      "quickFilterConditionResponse": {
+        "description": "A property filter condition. Same shape as a property filter but without the \"property\" field. For example: { \"select\": { \"equals\": \"High\" } }.",
+        "type": "object"
+      },
+      "relationGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups."
+          },
+          "type": {
+            "const": "relation",
+            "description": "The property type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "selectGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups."
+          },
+          "type": {
+            "description": "The property type for grouping.",
+            "enum": [
+              "select",
+              "multi_select"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "statusGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "group_by": {
+            "description": "How to group status values. \"group\" groups by status group (To Do/In Progress/Done), \"option\" groups by individual option.",
+            "enum": [
+              "group",
+              "option"
+            ],
+            "type": "string"
+          },
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups."
+          },
+          "type": {
+            "const": "status",
+            "description": "The property type for grouping.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "group_by",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "subtaskConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "display_mode": {
+            "description": "How sub-items are displayed. \"show\" renders hierarchically with toggles, \"hidden\" shows parents with a count, \"flattened\" shows sub-items with a parent indicator, \"disabled\" turns off sub-item rendering.",
+            "enum": [
+              "show",
+              "hidden",
+              "flattened",
+              "disabled"
+            ],
+            "type": "string"
+          },
+          "filter_scope": {
+            "description": "Which items are included when filtering. \"parents\" includes parent items only, \"parents_and_subitems\" includes both, \"subitems\" includes sub-items only.",
+            "enum": [
+              "parents",
+              "parents_and_subitems",
+              "subitems"
+            ],
+            "type": "string"
+          },
+          "property_id": {
+            "description": "Relation property ID used for parent-child nesting.",
+            "type": "string"
+          },
+          "toggle_column_id": {
+            "description": "Property ID of the column showing the sub-item expand/collapse toggle.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "tableViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "frozen_column_index": {
+            "description": "Index of the last frozen column. Columns up to and including this index are frozen.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "group_by": {
+            "$ref": "#/components/schemas/groupByConfigResponse",
+            "description": "Vertical (row) grouping configuration."
+          },
+          "properties": {
+            "description": "Columns/properties visible in the table view.",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "show_vertical_lines": {
+            "description": "Whether to show vertical lines between columns.",
+            "type": "boolean"
+          },
+          "subtasks": {
+            "$ref": "#/components/schemas/subtaskConfigResponse",
+            "description": "Sub-item (subtask) display configuration."
+          },
+          "type": {
+            "const": "table",
+            "description": "The view configuration type.",
+            "type": "string"
+          },
+          "wrap_cells": {
+            "description": "Whether to wrap cell content by default.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "textGroupByConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "group_by": {
+            "description": "How to group text values. \"exact\" = exact match, \"alphabet_prefix\" = first letter.",
+            "enum": [
+              "exact",
+              "alphabet_prefix"
+            ],
+            "type": "string"
+          },
+          "hide_empty_groups": {
+            "description": "Whether to hide groups that have no items.",
+            "type": "boolean"
+          },
+          "property_id": {
+            "description": "Property ID to group by.",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field).",
+            "type": "string"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/groupSortResponse",
+            "description": "Sort order for groups."
+          },
+          "type": {
+            "description": "The property type for grouping.",
+            "enum": [
+              "text",
+              "title",
+              "url",
+              "email",
+              "phone_number"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "property_id",
+          "group_by",
+          "sort"
+        ],
+        "type": "object"
+      },
+      "timelineArrowsByResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "property_id": {
+            "description": "Relation property ID used for dependency arrows.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "timelinePreferenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "center_timestamp": {
+            "description": "Center timestamp for the timeline view (Unix timestamp in ms).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "zoom_level": {
+            "description": "Zoom level for the timeline.",
+            "enum": [
+              "hours",
+              "day",
+              "week",
+              "bi_week",
+              "month",
+              "quarter",
+              "year",
+              "5_years"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "zoom_level"
+        ],
+        "type": "object"
+      },
+      "timelineViewConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "arrows_by": {
+            "$ref": "#/components/schemas/timelineArrowsByResponse",
+            "description": "Dependency arrows configuration."
+          },
+          "color_by": {
+            "description": "Whether to color-code items by property.",
+            "type": "boolean"
+          },
+          "date_property_id": {
+            "description": "Start date property - required.",
+            "type": "string"
+          },
+          "date_property_name": {
+            "description": "Start date property name (convenience field).",
+            "type": "string"
+          },
+          "end_date_property_id": {
+            "description": "End date property (optional, for items that span a range).",
+            "type": "string"
+          },
+          "end_date_property_name": {
+            "description": "End date property name (convenience field).",
+            "type": "string"
+          },
+          "preference": {
+            "$ref": "#/components/schemas/timelinePreferenceResponse",
+            "description": "Timeline zoom/preference state."
+          },
+          "properties": {
+            "description": "Properties to display on timeline items.",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "show_table": {
+            "description": "Whether to show the table panel alongside the timeline.",
+            "type": "boolean"
+          },
+          "table_properties": {
+            "description": "Properties to display in the table panel (when show_table is true).",
+            "items": {
+              "$ref": "#/components/schemas/viewPropertyConfigResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "type": {
+            "const": "timeline",
+            "description": "The view configuration type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "date_property_id"
+        ],
+        "type": "object"
+      },
+      "timestampSortResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "description": "Sort direction.",
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "The timestamp to sort by.",
+            "enum": [
+              "created_time",
+              "last_edited_time"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "direction"
+        ],
+        "type": "object"
+      },
+      "viewConfigResponse": {
+        "description": "View configuration, typed by view type (table, board, calendar, etc.).",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/tableViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/boardViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/calendarViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/timelineViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/galleryViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/listViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/mapViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/formViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/chartViewConfigResponse"
+          },
+          {
+            "$ref": "#/components/schemas/dashboardViewConfigResponse"
+          }
+        ]
+      },
+      "viewFilterResponse": {
+        "description": "Filter for the view. Can be a property filter (filter by property value), timestamp filter (filter by created_time or last_edited_time), or compound filter (combine filters with and/or logic). Compound filters support up to 2 levels of nesting.",
+        "oneOf": [
+          {
+            "additionalProperties": true,
+            "description": "A filter condition on a specific property. The property field specifies which property to filter, and an additional field specifies the filter type and condition (e.g., title, rich_text, number, checkbox, select, multi_select, date, people, files, relation, formula, rollup, etc.).",
+            "properties": {
+              "property": {
+                "description": "The name or ID of the property to filter on.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "property"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": true,
+            "description": "A filter condition on a timestamp (created_time or last_edited_time). The timestamp field specifies which timestamp, and a matching field contains the date filter condition.",
+            "properties": {
+              "timestamp": {
+                "description": "The timestamp to filter on.",
+                "enum": [
+                  "created_time",
+                  "last_edited_time"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "timestamp"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "A compound filter that combines multiple filters with AND or OR logic. Supports up to 2 levels of nesting.",
+            "properties": {
+              "and": {
+                "description": "Filters combined with AND logic.",
+                "items": {
+                  "description": "A filter that can be a property filter, timestamp filter, or nested compound filter.",
+                  "oneOf": [
+                    {
+                      "additionalProperties": true,
+                      "description": "A filter condition on a specific property. The property field specifies which property to filter, and an additional field specifies the filter type and condition (e.g., title, rich_text, number, checkbox, select, multi_select, date, people, files, relation, formula, rollup, etc.).",
+                      "properties": {
+                        "property": {
+                          "description": "The name or ID of the property to filter on.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "property"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "description": "A filter condition on a timestamp (created_time or last_edited_time). The timestamp field specifies which timestamp, and a matching field contains the date filter condition.",
+                      "properties": {
+                        "timestamp": {
+                          "description": "The timestamp to filter on.",
+                          "enum": [
+                            "created_time",
+                            "last_edited_time"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "timestamp"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "description": "A compound filter at the deepest nesting level. Can only contain property or timestamp filters (no further nesting).",
+                      "properties": {
+                        "and": {
+                          "description": "Filters combined with AND logic.",
+                          "items": {
+                            "description": "A property filter or timestamp filter.",
+                            "oneOf": [
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a specific property. The property field specifies which property to filter, and an additional field specifies the filter type and condition (e.g., title, rich_text, number, checkbox, select, multi_select, date, people, files, relation, formula, rollup, etc.).",
+                                "properties": {
+                                  "property": {
+                                    "description": "The name or ID of the property to filter on.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "property"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a timestamp (created_time or last_edited_time). The timestamp field specifies which timestamp, and a matching field contains the date filter condition.",
+                                "properties": {
+                                  "timestamp": {
+                                    "description": "The timestamp to filter on.",
+                                    "enum": [
+                                      "created_time",
+                                      "last_edited_time"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "timestamp"
+                                ],
+                                "type": "object"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        },
+                        "or": {
+                          "description": "Filters combined with OR logic.",
+                          "items": {
+                            "description": "A property filter or timestamp filter.",
+                            "oneOf": [
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a specific property. The property field specifies which property to filter, and an additional field specifies the filter type and condition (e.g., title, rich_text, number, checkbox, select, multi_select, date, people, files, relation, formula, rollup, etc.).",
+                                "properties": {
+                                  "property": {
+                                    "description": "The name or ID of the property to filter on.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "property"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a timestamp (created_time or last_edited_time). The timestamp field specifies which timestamp, and a matching field contains the date filter condition.",
+                                "properties": {
+                                  "timestamp": {
+                                    "description": "The timestamp to filter on.",
+                                    "enum": [
+                                      "created_time",
+                                      "last_edited_time"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "timestamp"
+                                ],
+                                "type": "object"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              "or": {
+                "description": "Filters combined with OR logic.",
+                "items": {
+                  "description": "A filter that can be a property filter, timestamp filter, or nested compound filter.",
+                  "oneOf": [
+                    {
+                      "additionalProperties": true,
+                      "description": "A filter condition on a specific property. The property field specifies which property to filter, and an additional field specifies the filter type and condition (e.g., title, rich_text, number, checkbox, select, multi_select, date, people, files, relation, formula, rollup, etc.).",
+                      "properties": {
+                        "property": {
+                          "description": "The name or ID of the property to filter on.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "property"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "description": "A filter condition on a timestamp (created_time or last_edited_time). The timestamp field specifies which timestamp, and a matching field contains the date filter condition.",
+                      "properties": {
+                        "timestamp": {
+                          "description": "The timestamp to filter on.",
+                          "enum": [
+                            "created_time",
+                            "last_edited_time"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "timestamp"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "description": "A compound filter at the deepest nesting level. Can only contain property or timestamp filters (no further nesting).",
+                      "properties": {
+                        "and": {
+                          "description": "Filters combined with AND logic.",
+                          "items": {
+                            "description": "A property filter or timestamp filter.",
+                            "oneOf": [
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a specific property. The property field specifies which property to filter, and an additional field specifies the filter type and condition (e.g., title, rich_text, number, checkbox, select, multi_select, date, people, files, relation, formula, rollup, etc.).",
+                                "properties": {
+                                  "property": {
+                                    "description": "The name or ID of the property to filter on.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "property"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a timestamp (created_time or last_edited_time). The timestamp field specifies which timestamp, and a matching field contains the date filter condition.",
+                                "properties": {
+                                  "timestamp": {
+                                    "description": "The timestamp to filter on.",
+                                    "enum": [
+                                      "created_time",
+                                      "last_edited_time"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "timestamp"
+                                ],
+                                "type": "object"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        },
+                        "or": {
+                          "description": "Filters combined with OR logic.",
+                          "items": {
+                            "description": "A property filter or timestamp filter.",
+                            "oneOf": [
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a specific property. The property field specifies which property to filter, and an additional field specifies the filter type and condition (e.g., title, rich_text, number, checkbox, select, multi_select, date, people, files, relation, formula, rollup, etc.).",
+                                "properties": {
+                                  "property": {
+                                    "description": "The name or ID of the property to filter on.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "property"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "additionalProperties": true,
+                                "description": "A filter condition on a timestamp (created_time or last_edited_time). The timestamp field specifies which timestamp, and a matching field contains the date filter condition.",
+                                "properties": {
+                                  "timestamp": {
+                                    "description": "The timestamp to filter on.",
+                                    "enum": [
+                                      "created_time",
+                                      "last_edited_time"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "timestamp"
+                                ],
+                                "type": "object"
+                              }
+                            ]
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  ]
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "viewPropertyConfigResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "card_property_width_mode": {
+            "description": "Property width mode in compact card layouts (board/gallery).",
+            "enum": [
+              "full_line",
+              "inline"
+            ],
+            "type": "string"
+          },
+          "date_format": {
+            "description": "Date display format (date properties only). \"full\" = localized full date, \"short\" = month and day, \"month_day_year\" = MM/DD/YYYY, \"day_month_year\" = DD/MM/YYYY, \"year_month_day\" = YYYY/MM/DD, \"relative\" = relative dates.",
+            "enum": [
+              "full",
+              "short",
+              "month_day_year",
+              "day_month_year",
+              "year_month_day",
+              "relative"
+            ],
+            "type": "string"
+          },
+          "property_id": {
+            "description": "Property ID (stable identifier).",
+            "type": "string"
+          },
+          "property_name": {
+            "description": "Property name (convenience field, not stable across renames).",
+            "type": "string"
+          },
+          "status_show_as": {
+            "description": "How to display status properties (as select dropdown or checkbox).",
+            "enum": [
+              "select",
+              "checkbox"
+            ],
+            "type": "string"
+          },
+          "time_format": {
+            "description": "Time display format (date properties only). \"12_hour\" = 12-hour clock with AM/PM, \"24_hour\" = 24-hour clock, \"hidden\" = hide time.",
+            "enum": [
+              "12_hour",
+              "24_hour",
+              "hidden"
+            ],
+            "type": "string"
+          },
+          "visible": {
+            "description": "Whether this property is visible in the view.",
+            "type": "boolean"
+          },
+          "width": {
+            "description": "Width of the property column in pixels (table view only).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "wrap": {
+            "description": "Whether to wrap content in this property cell/card.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "property_id"
+        ],
+        "type": "object"
+      },
+      "viewSortResponse": {
+        "description": "Sort for the view. Can sort by property or timestamp.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/propertySortResponse"
+          },
+          {
+            "$ref": "#/components/schemas/timestampSortResponse"
+          }
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "termsOfService": "https://notion.notion.site/Terms-and-Privacy-28ffdd083dc3473e9c2da6ec011b58ac",
+    "title": "Notion API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/views/{view_id}": {
+      "get": {
+        "operationId": "retrieve-a-view",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "view_id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/idRequest",
+              "description": "ID of a Notion view."
+            }
+          },
+          {
+            "$ref": "#/components/parameters/notionVersion"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/partialDataSourceViewObjectResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/dataSourceViewObjectResponse"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_400"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_401"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_403"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_404"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_409"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_429"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_500"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_503"
+                }
+              }
+            },
+            "description": ""
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_504"
+                }
+              }
+            },
+            "description": ""
+          },
+          "529": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_529"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Retrieve a view",
+        "tags": [
+          "Views"
+        ],
+        "x-codeSamples": [
+          {
+            "label": "TypeScript SDK",
+            "lang": "javascript",
+            "source": "import { Client } from \"@notionhq/client\"\n\nconst notion = new Client({ auth: process.env.NOTION_API_KEY })\n\nconst response = await notion.views.retrieve({\n  view_id: \"a3f1b2c4-5678-4def-abcd-1234567890ab\"\n})"
+          }
+        ],
+        "x-notion-docs-ref": "https://developers.notion.com/reference/retrieve-a-view"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.notion.com"
+    }
+  ]
+}

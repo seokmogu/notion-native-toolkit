@@ -1,0 +1,398 @@
+[
+  {
+    "method": "POST",
+    "path": "/v1/blocks/meeting_notes/query",
+    "summary": "Query meeting notes",
+    "tags": [
+      "Meeting notes"
+    ],
+    "operation_id": "query-meeting-notes"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/blocks/{block_id}",
+    "summary": "Delete a block",
+    "tags": [
+      "Blocks"
+    ],
+    "operation_id": "delete-a-block"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/blocks/{block_id}",
+    "summary": "Retrieve a block",
+    "tags": [
+      "Blocks"
+    ],
+    "operation_id": "retrieve-a-block"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/blocks/{block_id}",
+    "summary": "Update a block",
+    "tags": [
+      "Blocks"
+    ],
+    "operation_id": "update-a-block"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/blocks/{block_id}/children",
+    "summary": "Retrieve block children",
+    "tags": [
+      "Blocks"
+    ],
+    "operation_id": "get-block-children"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/blocks/{block_id}/children",
+    "summary": "Append block children",
+    "tags": [
+      "Blocks"
+    ],
+    "operation_id": "patch-block-children"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/comments",
+    "summary": "List comments",
+    "tags": [
+      "Comments"
+    ],
+    "operation_id": "list-comments"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/comments",
+    "summary": "Create a comment",
+    "tags": [
+      "Comments"
+    ],
+    "operation_id": "create-a-comment"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/comments/{comment_id}",
+    "summary": "Delete a comment",
+    "tags": [
+      "Comments"
+    ],
+    "operation_id": "delete-a-comment"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/comments/{comment_id}",
+    "summary": "Retrieve a comment",
+    "tags": [
+      "Comments"
+    ],
+    "operation_id": "retrieve-comment"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/comments/{comment_id}",
+    "summary": "Update a comment",
+    "tags": [
+      "Comments"
+    ],
+    "operation_id": "update-a-comment"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/custom_emojis",
+    "summary": "List custom emojis",
+    "tags": [
+      "Custom emojis"
+    ],
+    "operation_id": "list-custom-emojis"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/data_sources",
+    "summary": "Create a data source",
+    "tags": [
+      "Data sources"
+    ],
+    "operation_id": "create-a-database"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/data_sources/{data_source_id}",
+    "summary": "Retrieve a data source",
+    "tags": [
+      "Data sources"
+    ],
+    "operation_id": "retrieve-a-data-source"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/data_sources/{data_source_id}",
+    "summary": "Update a data source",
+    "tags": [
+      "Data sources"
+    ],
+    "operation_id": "update-a-data-source"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/data_sources/{data_source_id}/query",
+    "summary": "Query a data source",
+    "tags": [
+      "Data sources"
+    ],
+    "operation_id": "post-database-query"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/data_sources/{data_source_id}/templates",
+    "summary": "List templates in a data source",
+    "tags": [
+      "Data sources"
+    ],
+    "operation_id": "list-data-source-templates"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/databases",
+    "summary": "Create a database",
+    "tags": [
+      "Databases"
+    ],
+    "operation_id": "create-database"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/databases/{database_id}",
+    "summary": "Retrieve a database",
+    "tags": [
+      "Databases"
+    ],
+    "operation_id": "retrieve-database"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/databases/{database_id}",
+    "summary": "Update a database",
+    "tags": [
+      "Databases"
+    ],
+    "operation_id": "update-database"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/file_uploads",
+    "summary": "List file uploads",
+    "tags": [
+      "File uploads"
+    ],
+    "operation_id": "list-file-uploads"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/file_uploads",
+    "summary": "Create a file upload",
+    "tags": [
+      "File uploads"
+    ],
+    "operation_id": "create-file"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/file_uploads/{file_upload_id}",
+    "summary": "Retrieve a file upload",
+    "tags": [
+      "File uploads"
+    ],
+    "operation_id": "retrieve-file-upload"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/file_uploads/{file_upload_id}/complete",
+    "summary": "Complete a multi-part file upload",
+    "tags": [
+      "File uploads"
+    ],
+    "operation_id": "complete-file-upload"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/file_uploads/{file_upload_id}/send",
+    "summary": "Upload a file",
+    "tags": [
+      "File uploads"
+    ],
+    "operation_id": "upload-file"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/pages",
+    "summary": "Create a page",
+    "tags": [
+      "Pages"
+    ],
+    "operation_id": "post-page"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/pages/{page_id}",
+    "summary": "Retrieve a page",
+    "tags": [
+      "Pages"
+    ],
+    "operation_id": "retrieve-a-page"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/pages/{page_id}",
+    "summary": "Update page",
+    "tags": [
+      "Pages"
+    ],
+    "operation_id": "patch-page"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/pages/{page_id}/markdown",
+    "summary": "Retrieve a page as markdown",
+    "tags": [
+      "Pages"
+    ],
+    "operation_id": "retrieve-page-markdown"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/pages/{page_id}/markdown",
+    "summary": "Update a page's content as markdown",
+    "tags": [
+      "Pages"
+    ],
+    "operation_id": "update-page-markdown"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/pages/{page_id}/move",
+    "summary": "Move a page",
+    "tags": [
+      "Pages"
+    ],
+    "operation_id": "move-page"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/pages/{page_id}/properties/{property_id}",
+    "summary": "Retrieve a page property item",
+    "tags": [
+      "Pages"
+    ],
+    "operation_id": "retrieve-a-page-property"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/search",
+    "summary": "Search by title",
+    "tags": [
+      "Search"
+    ],
+    "operation_id": "post-search"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/users",
+    "summary": "List all users",
+    "tags": [
+      "Users"
+    ],
+    "operation_id": "get-users"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/users/me",
+    "summary": "Retrieve your token's bot user",
+    "tags": [
+      "Users"
+    ],
+    "operation_id": "get-self"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/users/{user_id}",
+    "summary": "Retrieve a user",
+    "tags": [
+      "Users"
+    ],
+    "operation_id": "get-user"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/views",
+    "summary": "List views",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "list-views"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/views",
+    "summary": "Create a view",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "create-view"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/views/{view_id}",
+    "summary": "Delete a view",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "delete-view"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/views/{view_id}",
+    "summary": "Retrieve a view",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "retrieve-a-view"
+  },
+  {
+    "method": "PATCH",
+    "path": "/v1/views/{view_id}",
+    "summary": "Update a view",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "update-a-view"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/views/{view_id}/queries",
+    "summary": "Create a view query",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "create-view-query"
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/views/{view_id}/queries/{query_id}",
+    "summary": "Delete a view query",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "delete-view-query"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/views/{view_id}/queries/{query_id}",
+    "summary": "Get view query results",
+    "tags": [
+      "Views"
+    ],
+    "operation_id": "get-view-query-results"
+  }
+]

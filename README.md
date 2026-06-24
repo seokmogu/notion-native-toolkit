@@ -99,6 +99,8 @@ toolkit = NotionToolkit.from_profile("worxphere")
 
 # 페이지 조회
 page = toolkit.client.fetch_page("page-id")
+block = toolkit.client.fetch_block("block-id")
+children = toolkit.client.fetch_children("block-id")
 
 # 데이터베이스 쿼리
 rows = toolkit.client.query_database("db-id", {
@@ -114,13 +116,49 @@ toolkit.client.create_page_markdown(
 
 # 마크다운 읽기
 md = toolkit.client.retrieve_markdown("page-id")
+toolkit.client.move_page("page-id", parent_page_id="new-parent-page-id")
+toolkit.client.create_comment_markdown(
+    "확인했습니다.",
+    parent_page_id="page-id",
+)
+results = toolkit.client.search({"query": "roadmap"})
+users = toolkit.client.list_users()
+emoji = toolkit.client.list_custom_emojis()
+views = toolkit.client.list_views(data_source_id="data-source-id")
+meeting_notes = toolkit.client.query_meeting_notes({"query": "weekly"})
 
 # 파일 업로드
 upload = toolkit.client.create_file_upload("report.pdf")
 toolkit.client.send_file_upload(upload["id"], "report.pdf", file_bytes)
+uploads = toolkit.client.list_file_uploads(status="uploaded")
 ```
 
 CLI에서 Markdown을 Notion 페이지로 생성하거나 갱신할 때는 기본값으로 `blocks` 모드를 사용합니다. 이 모드는 Markdown 표를 Notion table block으로 변환하므로 표 구분선(`|---|`)이 본문 행으로 남는 문제를 피할 수 있습니다. Notion의 native Markdown endpoint가 꼭 필요할 때만 `--mode native`를 명시합니다.
+
+Notion 공식 CLI(`ntn`)가 설치되어 있고 공식 Markdown 처리 경로를 그대로 쓰고 싶다면 `--mode cli`를 사용할 수 있습니다. 이 모드는 프로필 API 토큰을 `NOTION_API_TOKEN`으로 넘기며, 프로필 토큰이 없으면 `ntn` 자체 인증 상태와 환경변수에 위임합니다.
+
+공식 API 기본 세션 버전은 legacy `2022-06-28`을 유지합니다. 다만 page/database create·retrieve·update, `data_sources`, Markdown page IO, file uploads처럼 현재 캡처된 신규 endpoint는 스펙 요구에 맞춰 요청별로 `2026-03-11` 헤더를 사용합니다. 전체 client 버전을 고정해야 할 때는 `NOTION_API_VERSION=YYYY-MM-DD` 또는 `NotionApiClient(..., notion_version="YYYY-MM-DD")`로 지정할 수 있습니다.
+
+새 공식 API 표면을 점검할 때는 `NotionToolkit.from_profile("worxphere").cli.api_list()`, `.api_docs("v1/comments", method="POST")`, `.api_spec("v1/comments", method="POST")`처럼 `ntn api ls/docs/spec` 출력을 래퍼로 가져올 수 있습니다.
+CLI에서는 `notion-native api capture --output-dir docs/notion-api-capture/current --endpoint POST:v1/comments`로 같은 캡처를 파일화합니다. 자세한 흐름은 `docs/official-api-capture.md`를 따릅니다.
+
+공식 API의 `data_sources` 계열도 지원합니다. 기존 `query_database()`는 호환용으로 유지하고, 새 API는 `fetch_data_source()`, `query_data_source()`, `create_data_source()`, `update_data_source()`, `list_data_source_templates()`를 사용합니다. `ntn` 표면은 `NotionToolkit.from_profile("worxphere").cli.datasources_query(...)`와 `.cli.datasources_resolve(...)`로 래핑합니다.
+
+페이지와 데이터베이스 create/retrieve/update는 공식 API 스펙에 맞춰 raw payload 중심으로 열어 두었습니다. SDK에서는 `create_page(payload)`, `update_page(page_id, payload)`, `fetch_database(database_id)`, `create_database(payload)`, `update_database(database_id, payload)`를 사용하고, CLI의 생성/수정 명령은 실제 Notion 상태를 바꾸므로 `--yes` 확인을 요구합니다.
+
+파일 업로드 API는 `create_file_upload()`, `send_file_upload()`, `list_file_uploads()`, `fetch_file_upload()`, `complete_file_upload()`를 지원합니다. `complete_file_upload()`는 multipart 업로드 완료용이며, CLI에서는 `notion-native api complete-file-upload --profile worxphere --upload-id <id> --yes`처럼 명시 확인을 요구합니다.
+
+페이지 이동 API는 `move_page(page_id, parent_page_id=...)` 또는 `move_page(page_id, parent_data_source_id=...)`로 사용합니다. CLI에서는 실제 Notion 상태를 바꾸는 동작이므로 `notion-native api move-page --profile worxphere --page-id <id> --parent-page-id <parent-id> --yes`처럼 명시 확인을 요구합니다.
+
+댓글 API는 `list_comments(block_id)`, `fetch_comment(comment_id)`, `create_comment_markdown(...)`, `update_comment_markdown(...)`, `delete_comment(...)`를 지원합니다. 댓글 생성/수정/삭제 CLI는 실제 Notion 상태를 바꾸므로 `--yes` 확인을 요구합니다.
+
+읽기 중심 공식 API도 확장했습니다. `search(payload)`, `list_users()`, `fetch_user()`, `fetch_bot_user()`, `list_custom_emojis()`, `fetch_page_property()`를 사용할 수 있고, CLI에서는 `notion-native api search/list-users/fetch-user/fetch-bot-user/list-custom-emojis/fetch-page-property`로 노출됩니다.
+
+Views API는 raw payload 중심으로 지원합니다. `list_views()`, `create_view()`, `fetch_view()`, `update_view()`, `delete_view()`, `create_view_query()`, `fetch_view_query_results()`, `delete_view_query()`를 사용할 수 있으며, 생성/수정/삭제 CLI는 `--yes` 확인을 요구합니다.
+
+Blocks API는 현재 공식 버전에 맞춰 `fetch_block()`, `fetch_children()`, `append_children()`, `update_block()`, `delete_block()`를 제공합니다. `query_meeting_notes(payload)`는 공식 meeting notes query endpoint를 raw payload로 호출합니다.
+
+`ntn`의 운영성 명령도 일부 흡수했습니다. 프로필 토큰을 전달해 인증 상태를 확인하려면 `notion-native cli whoami --profile worxphere`, 파일 업로드 상태는 `notion-native cli files-get --profile worxphere --upload-id <id>` 또는 `notion-native cli files-list --profile worxphere`를 사용합니다. 페이지 휴지통 이동은 쓰기 동작이므로 `notion-native cli page-trash --profile worxphere --page-id <id> --yes`처럼 명시 확인을 요구합니다.
 
 기존 페이지를 갱신하면서 Notion 페이지 제목도 함께 맞춰야 할 때는 `page update-from-markdown --title "문서 제목"`을 사용합니다.
 파일의 첫 H1이 지정한 제목과 같으면 본문에서 자동으로 제거되어 Notion 페이지 제목과 본문 H1이 중복되지 않습니다.
@@ -467,8 +505,82 @@ notion-native page update-from-markdown \
   --profile worxphere \
   --page-id 0123456789abcdef \
   --file docs/spec.md \
-  --mode blocks  # blocks 또는 markdown (기본: markdown)
+  --mode blocks  # blocks, native, cli (기본: blocks)
+
+# Notion 공식 CLI 경로로 Markdown 페이지 생성/수정
+notion-native page create-from-markdown \
+  --profile worxphere \
+  --title "문서 제목" \
+  --parent-page-id 0123456789abcdef \
+  --file docs/spec.md \
+  --mode cli
+
+# 공식 ntn API 표면 캡처
+notion-native api capture \
+  --output-dir docs/notion-api-capture/current \
+  --endpoint POST:v1/comments
+
+# 공식 API 캡처 간 차이 확인
+notion-native api diff \
+  --old-dir docs/notion-api-capture/current \
+  --new-dir docs/notion-api-capture/2026-06-23
+
+# 공식 page/database raw API 사용
+notion-native api fetch-page \
+  --profile worxphere \
+  --page-id 0123456789abcdef
+notion-native api update-database \
+  --profile worxphere \
+  --database-id 0123456789abcdef \
+  --payload database-update.json \
+  --yes
+
+# 공식 data source API 사용
+notion-native api query-data-source \
+  --profile worxphere \
+  --data-source-id 0123456789abcdef
+
+# 공식 file upload API 사용
+notion-native api list-file-uploads \
+  --profile worxphere \
+  --status uploaded
+
+# 공식 page move API 사용
+notion-native api move-page \
+  --profile worxphere \
+  --page-id 0123456789abcdef \
+  --parent-page-id fedcba9876543210 \
+  --yes
+
+# 공식 comments API 사용
+notion-native api list-comments \
+  --profile worxphere \
+  --block-id 0123456789abcdef
+
+# 공식 search/users/custom emoji/page property API 사용
+notion-native api search \
+  --profile worxphere \
+  --query roadmap
+notion-native api fetch-bot-user --profile worxphere
+notion-native api list-views \
+  --profile worxphere \
+  --data-source-id 0123456789abcdef
+notion-native api list-block-children \
+  --profile worxphere \
+  --block-id 0123456789abcdef
+
+# 공식 ntn 인증/파일 업로드 상태 확인
+notion-native cli whoami --profile worxphere
+notion-native cli files-list --profile worxphere
+
+# 단일 Markdown 파일이나 일반 child page 배포에 공식 CLI Markdown writer 사용
+notion-native deploy docs/spec.md \
+  --profile worxphere \
+  --parent-page-id 0123456789abcdef \
+  --backend cli
 ```
+
+`deploy --backend cli`는 일반 Markdown page create/edit 경로에 `ntn pages create/edit`를 사용합니다. 디렉토리 배포의 컨테이너 페이지와 README landing은 child page 보존 로직 때문에 기존 `blocks` writer를 계속 사용합니다.
 
 ### 브라우저 자동화
 

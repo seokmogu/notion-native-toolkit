@@ -1,0 +1,398 @@
+> Retrieves a list of custom emojis in the workspace.
+
+# List custom emojis
+
+See [Pagination](/reference/intro#pagination) for details about how to use a cursor to iterate through the list.
+
+Use the `name` query parameter to filter by exact name match, which is useful for resolving a custom emoji name to its ID.
+
+
+## OpenAPI
+
+````yaml get /v1/custom_emojis
+openapi: 3.1.0
+info:
+  title: Notion API
+  version: 1.0.0
+  termsOfService: >-
+    https://notion.notion.site/Terms-and-Privacy-28ffdd083dc3473e9c2da6ec011b58ac
+servers:
+  - url: https://api.notion.com
+security:
+  - bearerAuth: []
+tags:
+  - name: Databases
+    description: Database endpoints
+  - name: Data sources
+    description: Data source endpoints
+  - name: Pages
+    description: Page endpoints
+  - name: Blocks
+    description: Block endpoints
+  - name: Comments
+    description: Comment endpoints
+  - name: File uploads
+    description: File upload endpoints
+  - name: OAuth
+    description: OAuth endpoints (basic authentication)
+  - name: Users
+    description: User endpoints
+  - name: Search
+    description: Search endpoints
+  - name: Views
+    description: View endpoints
+  - name: Custom emojis
+    description: Custom emoji endpoints
+  - name: Meeting notes
+    description: Meeting notes endpoints
+paths:
+  /v1/custom_emojis:
+    get:
+      tags:
+        - Custom emojis
+      summary: List custom emojis
+      operationId: list-custom-emojis
+      parameters:
+        - name: start_cursor
+          in: query
+          schema:
+            type: string
+            description: >-
+              If supplied, this endpoint will return a page of results starting
+              after the cursor provided. If not supplied, this endpoint will
+              return the first page of results.
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            description: >-
+              The number of items from the full list desired in the response.
+              Maximum: 100
+        - name: name
+          in: query
+          schema:
+            type: string
+            description: >-
+              If supplied, filters custom emojis by exact name match. Useful for
+              resolving a custom emoji name to its ID.
+        - $ref: '#/components/parameters/notionVersion'
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    const: list
+                    description: Always `list`
+                  type:
+                    type: string
+                    const: custom_emoji
+                    description: Always `custom_emoji`
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/customEmojiResponse'
+                    maxItems: 100
+                    description: The list of custom emojis.
+                  has_more:
+                    type: boolean
+                    description: Whether there are more results available.
+                  next_cursor:
+                    oneOf:
+                      - $ref: '#/components/schemas/idResponse'
+                      - type: 'null'
+                    description: >-
+                      The cursor to use for the next page of results, or null if
+                      there are no more results.
+                additionalProperties: false
+                required:
+                  - object
+                  - type
+                  - results
+                  - has_more
+                  - next_cursor
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_400'
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_401'
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_403'
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_404'
+        '409':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_409'
+        '429':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_429'
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_500'
+        '503':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_503'
+        '504':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_504'
+        '529':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error_api_529'
+      x-codeSamples:
+        - lang: javascript
+          label: TypeScript SDK
+          source: |-
+            import { Client } from "@notionhq/client"
+            import { collectPaginatedAPI } from "@notionhq/client"
+
+            const notion = new Client()
+
+            // Single page
+            const response = await notion.customEmojis.list()
+
+            // All pages with pagination helper
+            const allEmojis = await collectPaginatedAPI(
+              notion.customEmojis.list,
+              {}
+            )
+components:
+  parameters:
+    notionVersion:
+      name: Notion-Version
+      in: header
+      required: true
+      schema:
+        enum:
+          - '2026-03-11'
+      description: >-
+        The [API version](/reference/versioning) to use for this request. The
+        latest version is `2026-03-11`.
+  schemas:
+    customEmojiResponse:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/idResponse'
+          description: The ID of the custom emoji.
+        name:
+          type: string
+          description: The name of the custom emoji.
+        url:
+          type: string
+          description: The URL of the custom emoji.
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - url
+    idResponse:
+      type: string
+      format: uuid
+    error_api_400:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - invalid_json
+                - invalid_request_url
+                - invalid_request
+                - missing_version
+                - validation_error
+            status:
+              const: 400
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_401:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - unauthorized
+            status:
+              const: 401
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_403:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - restricted_resource
+            status:
+              const: 403
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_404:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - object_not_found
+            status:
+              const: 404
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_409:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - conflict_error
+                - row_limit_exceeded
+            status:
+              const: 409
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_429:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - rate_limited
+            status:
+              const: 429
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_500:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - internal_server_error
+            status:
+              const: 500
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_503:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - service_unavailable
+            status:
+              const: 503
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_504:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - gateway_timeout
+            status:
+              const: 504
+          required:
+            - code
+            - status
+          additionalProperties: false
+    error_api_529:
+      allOf:
+        - $ref: '#/components/schemas/publicApiCommonErrorResponse'
+        - type: object
+          properties:
+            code:
+              enum:
+                - service_overload
+            status:
+              const: 529
+          required:
+            - code
+            - status
+          additionalProperties: false
+    publicApiCommonErrorResponse:
+      type: object
+      properties:
+        object:
+          const: error
+        message:
+          type: string
+        additional_data:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+      required:
+        - object
+        - message
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+````

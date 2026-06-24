@@ -1,0 +1,4135 @@
+{
+  "components": {
+    "parameters": {
+      "notionVersion": {
+        "description": "The [API version](/reference/versioning) to use for this request. The latest version is `2026-03-11`.",
+        "in": "header",
+        "name": "Notion-Version",
+        "required": true,
+        "schema": {
+          "enum": [
+            "2026-03-11"
+          ]
+        }
+      }
+    },
+    "schemas": {
+      "annotationRequest": {
+        "properties": {
+          "bold": {
+            "description": "Whether the text is formatted as bold.",
+            "type": "boolean"
+          },
+          "code": {
+            "description": "Whether the text is formatted as code.",
+            "type": "boolean"
+          },
+          "color": {
+            "$ref": "#/components/schemas/apiColor",
+            "description": "The color of the text."
+          },
+          "italic": {
+            "description": "Whether the text is formatted as italic.",
+            "type": "boolean"
+          },
+          "strikethrough": {
+            "description": "Whether the text is formatted with a strikethrough.",
+            "type": "boolean"
+          },
+          "underline": {
+            "description": "Whether the text is formatted with an underline.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "annotationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bold": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "boolean"
+          },
+          "color": {
+            "$ref": "#/components/schemas/apiColor"
+          },
+          "italic": {
+            "type": "boolean"
+          },
+          "strikethrough": {
+            "type": "boolean"
+          },
+          "underline": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bold",
+          "italic",
+          "strikethrough",
+          "underline",
+          "code",
+          "color"
+        ],
+        "type": "object"
+      },
+      "apiColor": {
+        "description": "One of: `default`, `gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`, `default_background`, `gray_background`, `brown_background`, `orange_background`, `yellow_background`, `green_background`, `blue_background`, `purple_background`, `pink_background`, `red_background`",
+        "enum": [
+          "default",
+          "gray",
+          "brown",
+          "orange",
+          "yellow",
+          "green",
+          "blue",
+          "purple",
+          "pink",
+          "red",
+          "default_background",
+          "gray_background",
+          "brown_background",
+          "orange_background",
+          "yellow_background",
+          "green_background",
+          "blue_background",
+          "purple_background",
+          "pink_background",
+          "red_background"
+        ],
+        "type": "string"
+      },
+      "blockIdParentForBlockBasedObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "block_id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the parent block."
+          },
+          "type": {
+            "const": "block_id",
+            "description": "The parent type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "block_id"
+        ],
+        "type": "object"
+      },
+      "botInfoResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "description": "Details about the owner of the bot.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "const": "user",
+                    "description": "Always `user`",
+                    "type": "string"
+                  },
+                  "user": {
+                    "description": "Details about the owner of the bot, when the `type` of the owner is `user`. This means the bot is for a integration.",
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "avatar_url": {
+                            "description": "The avatar URL of the user.",
+                            "oneOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "id": {
+                            "$ref": "#/components/schemas/idResponse",
+                            "description": "The ID of the user."
+                          },
+                          "name": {
+                            "description": "The name of the user.",
+                            "oneOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "object": {
+                            "const": "user",
+                            "description": "The user object type name.",
+                            "type": "string"
+                          },
+                          "person": {
+                            "additionalProperties": false,
+                            "description": "The person info of the user.",
+                            "properties": {
+                              "email": {
+                                "description": "The email of the person.",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": {
+                            "const": "person",
+                            "description": "The type of the user.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "object",
+                          "name",
+                          "avatar_url",
+                          "type",
+                          "person"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "$ref": "#/components/schemas/partialUserObjectResponse"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "type",
+                  "user"
+                ],
+                "title": "User",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "const": "workspace",
+                    "description": "Always `workspace`",
+                    "type": "string"
+                  },
+                  "workspace": {
+                    "const": true,
+                    "description": "Details about the owner of the bot, when the `type` of the owner is `workspace`. This means the bot is for an internal integration.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "type",
+                  "workspace"
+                ],
+                "title": "Workspace",
+                "type": "object"
+              }
+            ]
+          },
+          "workspace_id": {
+            "description": "The ID of the bot's workspace.",
+            "type": "string"
+          },
+          "workspace_limits": {
+            "additionalProperties": false,
+            "description": "Limits and restrictions that apply to the bot's workspace",
+            "properties": {
+              "max_file_upload_size_in_bytes": {
+                "description": "The maximum allowable size of a file upload, in bytes",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "max_file_upload_size_in_bytes"
+            ],
+            "type": "object"
+          },
+          "workspace_name": {
+            "description": "The name of the bot's workspace.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "owner",
+          "workspace_id",
+          "workspace_limits",
+          "workspace_name"
+        ],
+        "type": "object"
+      },
+      "botUserObjectResponse": {
+        "properties": {
+          "bot": {
+            "description": "Details about the bot, when the `type` of the user is `bot`.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/emptyObject"
+              },
+              {
+                "$ref": "#/components/schemas/botInfoResponse"
+              }
+            ]
+          },
+          "type": {
+            "const": "bot",
+            "description": "Indicates this user is a bot.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "bot"
+        ],
+        "title": "Bot",
+        "type": "object"
+      },
+      "checkboxDatabasePropertyConfigResponse": {
+        "properties": {
+          "checkbox": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "checkbox",
+            "description": "Always `checkbox`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "checkbox"
+        ],
+        "title": "Checkbox",
+        "type": "object"
+      },
+      "createdByDatabasePropertyConfigResponse": {
+        "properties": {
+          "created_by": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "created_by",
+            "description": "Always `created_by`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "created_by"
+        ],
+        "title": "Created By",
+        "type": "object"
+      },
+      "createdTimeDatabasePropertyConfigResponse": {
+        "properties": {
+          "created_time": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "created_time",
+            "description": "Always `created_time`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "created_time"
+        ],
+        "title": "Created Time",
+        "type": "object"
+      },
+      "customEmojiPageIconRequest": {
+        "properties": {
+          "custom_emoji": {
+            "properties": {
+              "id": {
+                "$ref": "#/components/schemas/idRequest",
+                "description": "The ID of the custom emoji."
+              },
+              "name": {
+                "description": "The name of the custom emoji.",
+                "type": "string"
+              },
+              "url": {
+                "description": "The URL of the custom emoji.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "custom_emoji",
+            "description": "Always `custom_emoji`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "custom_emoji"
+        ],
+        "title": "Custom Emoji",
+        "type": "object"
+      },
+      "customEmojiPageIconResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "custom_emoji": {
+            "$ref": "#/components/schemas/customEmojiResponse",
+            "description": "The custom emoji details for the icon."
+          },
+          "type": {
+            "const": "custom_emoji",
+            "description": "Type of icon. In this case, a custom emoji.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "custom_emoji"
+        ],
+        "title": "Custom Emoji",
+        "type": "object"
+      },
+      "customEmojiResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the custom emoji."
+          },
+          "name": {
+            "description": "The name of the custom emoji.",
+            "type": "string"
+          },
+          "url": {
+            "description": "The URL of the custom emoji.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url"
+        ],
+        "type": "object"
+      },
+      "dataSourceObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cover": {
+            "description": "The cover of the data source.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/pageCoverResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/partialUserObjectResponse",
+            "description": "The user who created the data source."
+          },
+          "created_time": {
+            "description": "The time when the data source was created.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "database_parent": {
+            "$ref": "#/components/schemas/parentOfDatabaseResponse",
+            "description": "The parent of the data source's containing database. This is typically a page, block, or workspace, but can be another database in the case of wikis."
+          },
+          "description": {
+            "description": "The description of the data source.",
+            "items": {
+              "$ref": "#/components/schemas/richTextItemResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "icon": {
+            "description": "The icon of the data source.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/pageIconResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the data source."
+          },
+          "in_trash": {
+            "description": "Whether the data source is in the trash.",
+            "type": "boolean"
+          },
+          "is_inline": {
+            "description": "Whether the data source is inline.",
+            "type": "boolean"
+          },
+          "last_edited_by": {
+            "$ref": "#/components/schemas/partialUserObjectResponse",
+            "description": "The user who last edited the data source."
+          },
+          "last_edited_time": {
+            "description": "The time when the data source was last edited.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "object": {
+            "const": "data_source",
+            "description": "The data source object type name.",
+            "type": "string"
+          },
+          "parent": {
+            "$ref": "#/components/schemas/parentOfDataSourceResponse",
+            "description": "The parent of the data source."
+          },
+          "properties": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/databasePropertyConfigResponse"
+            },
+            "description": "The properties schema of the data source.",
+            "type": "object"
+          },
+          "public_url": {
+            "description": "The public URL of the data source if it is publicly accessible.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "description": "The title of the data source.",
+            "items": {
+              "$ref": "#/components/schemas/richTextItemResponse"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "url": {
+            "description": "The URL of the data source.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "title",
+          "description",
+          "parent",
+          "database_parent",
+          "is_inline",
+          "in_trash",
+          "created_time",
+          "last_edited_time",
+          "created_by",
+          "last_edited_by",
+          "properties",
+          "icon",
+          "cover",
+          "url",
+          "public_url"
+        ],
+        "type": "object"
+      },
+      "dataSourceParentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data_source_id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the parent data source."
+          },
+          "database_id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the data source's parent database."
+          },
+          "type": {
+            "const": "data_source_id",
+            "description": "The parent type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "data_source_id",
+          "database_id"
+        ],
+        "type": "object"
+      },
+      "databaseParentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "database_id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the parent database."
+          },
+          "type": {
+            "const": "database_id",
+            "description": "The parent type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "database_id"
+        ],
+        "type": "object"
+      },
+      "databasePropertyConfigResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/databasePropertyConfigResponseCommon"
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/numberDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/formulaDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/selectDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/multiSelectDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/statusDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/relationDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/rollupDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/uniqueIdDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/titleDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/richTextDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/urlDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/peopleDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/filesDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/emailDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/phoneNumberDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/dateDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/checkboxDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/createdByDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/createdTimeDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/lastEditedByDatabasePropertyConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/lastEditedTimeDatabasePropertyConfigResponse"
+              }
+            ]
+          }
+        ]
+      },
+      "databasePropertyConfigResponseCommon": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "The description of the property.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/propertyDescriptionRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "description": "The ID of the property.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The name of the property.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description"
+        ],
+        "type": "object"
+      },
+      "databasePropertyRelationConfigResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/databasePropertyRelationConfigResponseCommon"
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/singlePropertyDatabasePropertyRelationConfigResponse"
+              },
+              {
+                "$ref": "#/components/schemas/dualPropertyDatabasePropertyRelationConfigResponse"
+              }
+            ]
+          }
+        ]
+      },
+      "databasePropertyRelationConfigResponseCommon": {
+        "additionalProperties": false,
+        "properties": {
+          "data_source_id": {
+            "$ref": "#/components/schemas/idResponse"
+          },
+          "database_id": {
+            "$ref": "#/components/schemas/idResponse"
+          }
+        },
+        "required": [
+          "database_id",
+          "data_source_id"
+        ],
+        "type": "object"
+      },
+      "dateDatabasePropertyConfigResponse": {
+        "properties": {
+          "date": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "date",
+            "description": "Always `date`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "date"
+        ],
+        "title": "Date",
+        "type": "object"
+      },
+      "dateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "description": "The end date of the date object, if any.",
+            "oneOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "description": "The start date of the date object.",
+            "format": "date",
+            "type": "string"
+          },
+          "time_zone": {
+            "description": "The time zone of the date object, if any. E.g. America/Los_Angeles, Europe/London, etc.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/timeZoneRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "start"
+        ],
+        "type": "object"
+      },
+      "dateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "description": "The end date of the date object, if any.",
+            "oneOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "description": "The start date of the date object.",
+            "format": "date",
+            "type": "string"
+          },
+          "time_zone": {
+            "description": "The time zone of the date object.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/timeZoneRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "time_zone"
+        ],
+        "type": "object"
+      },
+      "dualPropertyDatabasePropertyRelationConfigResponse": {
+        "properties": {
+          "dual_property": {
+            "additionalProperties": false,
+            "properties": {
+              "synced_property_id": {
+                "type": "string"
+              },
+              "synced_property_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "synced_property_id",
+              "synced_property_name"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "dual_property",
+            "description": "Always `dual_property`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dual_property"
+        ],
+        "title": "Dual Property",
+        "type": "object"
+      },
+      "emailDatabasePropertyConfigResponse": {
+        "properties": {
+          "email": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "email",
+            "description": "Always `email`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "email"
+        ],
+        "title": "Email",
+        "type": "object"
+      },
+      "emojiPageIconRequest": {
+        "properties": {
+          "emoji": {
+            "$ref": "#/components/schemas/emojiRequest",
+            "description": "An emoji character."
+          },
+          "type": {
+            "const": "emoji",
+            "description": "Always `emoji`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "emoji"
+        ],
+        "title": "Emoji",
+        "type": "object"
+      },
+      "emojiPageIconResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "emoji": {
+            "$ref": "#/components/schemas/emojiRequest",
+            "description": "The emoji character used as the icon."
+          },
+          "type": {
+            "const": "emoji",
+            "description": "Type of icon. In this case, an emoji.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "emoji"
+        ],
+        "title": "Emoji",
+        "type": "object"
+      },
+      "emojiRequest": {
+        "type": "string"
+      },
+      "emptyObject": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "equationRichTextItemRequest": {
+        "properties": {
+          "equation": {
+            "description": "Notion supports inline LaTeX equations as rich text objects with a type value of `equation`.",
+            "properties": {
+              "expression": {
+                "description": "A KaTeX compatible string.",
+                "examples": [
+                  "e=mc^2"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "expression"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "equation",
+            "description": "Always `equation`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "equation"
+        ],
+        "title": "Equation",
+        "type": "object"
+      },
+      "equationRichTextItemResponse": {
+        "properties": {
+          "equation": {
+            "additionalProperties": false,
+            "description": "Notion supports inline LaTeX equations as rich text objects with a type value of `equation`.",
+            "properties": {
+              "expression": {
+                "description": "A KaTeX compatible string.",
+                "examples": [
+                  "e=mc^2"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "expression"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "equation",
+            "description": "Always `equation`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "equation"
+        ],
+        "title": "Equation",
+        "type": "object"
+      },
+      "error_api_400": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "invalid_json",
+                  "invalid_request_url",
+                  "invalid_request",
+                  "missing_version",
+                  "validation_error"
+                ]
+              },
+              "status": {
+                "const": 400
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_401": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "unauthorized"
+                ]
+              },
+              "status": {
+                "const": 401
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_403": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "restricted_resource"
+                ]
+              },
+              "status": {
+                "const": 403
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_404": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "object_not_found"
+                ]
+              },
+              "status": {
+                "const": 404
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_409": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "conflict_error",
+                  "row_limit_exceeded"
+                ]
+              },
+              "status": {
+                "const": 409
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_429": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "rate_limited"
+                ]
+              },
+              "status": {
+                "const": 429
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_500": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "internal_server_error"
+                ]
+              },
+              "status": {
+                "const": 500
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_503": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "service_unavailable"
+                ]
+              },
+              "status": {
+                "const": 503
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_504": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "gateway_timeout"
+                ]
+              },
+              "status": {
+                "const": 504
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "error_api_529": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/publicApiCommonErrorResponse"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "enum": [
+                  "service_overload"
+                ]
+              },
+              "status": {
+                "const": 529
+              }
+            },
+            "required": [
+              "code",
+              "status"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "externalPageCoverResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "external": {
+            "additionalProperties": false,
+            "description": "The external URL for the cover.",
+            "properties": {
+              "url": {
+                "description": "The URL of the external file or resource.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "external",
+            "description": "Type of cover. In this case, an external URL.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "external"
+        ],
+        "title": "External",
+        "type": "object"
+      },
+      "externalPageIconRequest": {
+        "properties": {
+          "external": {
+            "properties": {
+              "url": {
+                "description": "The URL of the external file.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "external",
+            "description": "Always `external`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "external"
+        ],
+        "title": "External",
+        "type": "object"
+      },
+      "externalPageIconResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "external": {
+            "additionalProperties": false,
+            "description": "The external URL for the icon.",
+            "properties": {
+              "url": {
+                "description": "The URL of the external file or resource.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "external",
+            "description": "Type of icon. In this case, an external URL.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "external"
+        ],
+        "title": "External",
+        "type": "object"
+      },
+      "filePageCoverResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/internalFileResponse",
+            "description": "The file URL for the cover."
+          },
+          "type": {
+            "const": "file",
+            "description": "Type of cover. In this case, a file.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "file"
+        ],
+        "title": "File",
+        "type": "object"
+      },
+      "filePageIconResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/internalFileResponse",
+            "description": "The file URL for the icon."
+          },
+          "type": {
+            "const": "file",
+            "description": "Type of icon. In this case, a file.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "file"
+        ],
+        "title": "File",
+        "type": "object"
+      },
+      "fileUploadPageIconRequest": {
+        "properties": {
+          "file_upload": {
+            "properties": {
+              "id": {
+                "description": "ID of a FileUpload object that has the status `uploaded`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "file_upload",
+            "description": "Always `file_upload`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_upload"
+        ],
+        "title": "File Upload",
+        "type": "object"
+      },
+      "filesDatabasePropertyConfigResponse": {
+        "properties": {
+          "files": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "files",
+            "description": "Always `files`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "files"
+        ],
+        "title": "Files",
+        "type": "object"
+      },
+      "formulaDatabasePropertyConfigResponse": {
+        "properties": {
+          "formula": {
+            "additionalProperties": false,
+            "properties": {
+              "expression": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "expression"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "formula",
+            "description": "Always `formula`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "formula"
+        ],
+        "title": "Formula",
+        "type": "object"
+      },
+      "iconPageIconRequest": {
+        "properties": {
+          "icon": {
+            "description": "A Notion native icon, specified by name and optional color.",
+            "properties": {
+              "color": {
+                "$ref": "#/components/schemas/noticonColor",
+                "description": "The color variant of the icon. Defaults to gray if not specified. Valid values: gray, lightgray, brown, yellow, orange, green, blue, purple, pink, red."
+              },
+              "name": {
+                "$ref": "#/components/schemas/noticonName",
+                "description": "The name of the Notion icon (e.g. pizza, meeting, home). See the Notion icon picker for valid names."
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "icon",
+            "description": "Always `icon`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "icon"
+        ],
+        "title": "Icon",
+        "type": "object"
+      },
+      "iconPageIconResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "$ref": "#/components/schemas/noticonIconResponse",
+            "description": "The Notion native icon, specified by name and color."
+          },
+          "type": {
+            "const": "icon",
+            "description": "Type of icon. In this case, a Notion native icon.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "icon"
+        ],
+        "title": "Icon",
+        "type": "object"
+      },
+      "idRequest": {
+        "type": "string"
+      },
+      "idResponse": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "internalFileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expiry_time": {
+            "description": "The time when the URL will expire.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "url": {
+            "description": "The URL of the file.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expiry_time"
+        ],
+        "type": "object"
+      },
+      "lastEditedByDatabasePropertyConfigResponse": {
+        "properties": {
+          "last_edited_by": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "last_edited_by",
+            "description": "Always `last_edited_by`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "last_edited_by"
+        ],
+        "title": "Last Edited By",
+        "type": "object"
+      },
+      "lastEditedTimeDatabasePropertyConfigResponse": {
+        "properties": {
+          "last_edited_time": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "last_edited_time",
+            "description": "Always `last_edited_time`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "last_edited_time"
+        ],
+        "title": "Last Edited Time",
+        "type": "object"
+      },
+      "linkMentionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "The description of the link.",
+            "type": "string"
+          },
+          "height": {
+            "description": "The height of the link preview iframe.",
+            "type": "integer"
+          },
+          "href": {
+            "description": "The href of the link mention.",
+            "type": "string"
+          },
+          "icon_url": {
+            "description": "The icon URL of the link.",
+            "type": "string"
+          },
+          "iframe_url": {
+            "description": "The iframe URL of the link.",
+            "type": "string"
+          },
+          "link_author": {
+            "description": "The author of the link.",
+            "type": "string"
+          },
+          "link_provider": {
+            "description": "The provider of the link.",
+            "type": "string"
+          },
+          "padding": {
+            "description": "The padding of the link preview iframe.",
+            "type": "integer"
+          },
+          "padding_top": {
+            "description": "The top padding of the link preview iframe.",
+            "type": "integer"
+          },
+          "thumbnail_url": {
+            "description": "The thumbnail URL of the link.",
+            "type": "string"
+          },
+          "title": {
+            "description": "The title of the link.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "href"
+        ],
+        "type": "object"
+      },
+      "linkPreviewMentionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "description": "The URL of the link preview mention.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "mentionRichTextItemRequest": {
+        "properties": {
+          "mention": {
+            "description": "Mention objects represent an inline mention of a database, date, link preview mention, page, template mention, or user. A mention is created in the Notion UI when a user types `@` followed by the name of the reference.",
+            "oneOf": [
+              {
+                "properties": {
+                  "type": {
+                    "const": "user",
+                    "description": "Always `user`",
+                    "type": "string"
+                  },
+                  "user": {
+                    "$ref": "#/components/schemas/partialUserObjectRequest",
+                    "description": "Details of the user mention."
+                  }
+                },
+                "required": [
+                  "user"
+                ],
+                "title": "User",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "date": {
+                    "$ref": "#/components/schemas/dateRequest",
+                    "description": "Details of the date mention."
+                  },
+                  "type": {
+                    "const": "date",
+                    "description": "Always `date`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "date"
+                ],
+                "title": "Date",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "page": {
+                    "description": "Details of the page mention.",
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/idRequest",
+                        "description": "The ID of the page in the mention."
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "type": {
+                    "const": "page",
+                    "description": "Always `page`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "page"
+                ],
+                "title": "Page",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "database": {
+                    "description": "Details of the database mention.",
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/idRequest",
+                        "description": "The ID of the database in the mention."
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "type": {
+                    "const": "database",
+                    "description": "Always `database`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "database"
+                ],
+                "title": "Database",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "template_mention": {
+                    "$ref": "#/components/schemas/templateMentionRequest",
+                    "description": "Details of the template mention."
+                  },
+                  "type": {
+                    "const": "template_mention",
+                    "description": "Always `template_mention`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "template_mention"
+                ],
+                "title": "Template Mention",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "custom_emoji": {
+                    "description": "Details of the custom emoji mention.",
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/idRequest",
+                        "description": "The ID of the custom emoji."
+                      },
+                      "name": {
+                        "description": "The name of the custom emoji.",
+                        "type": "string"
+                      },
+                      "url": {
+                        "description": "The URL of the custom emoji.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "type": {
+                    "const": "custom_emoji",
+                    "description": "Always `custom_emoji`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "custom_emoji"
+                ],
+                "title": "Custom Emoji",
+                "type": "object"
+              }
+            ]
+          },
+          "type": {
+            "const": "mention",
+            "description": "Always `mention`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mention"
+        ],
+        "title": "Mention",
+        "type": "object"
+      },
+      "mentionRichTextItemResponse": {
+        "properties": {
+          "mention": {
+            "description": "Mention objects represent an inline mention of a database, date, link preview mention, page, template mention, or user. A mention is created in the Notion UI when a user types `@` followed by the name of the reference.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "const": "user",
+                    "description": "Always `user`",
+                    "type": "string"
+                  },
+                  "user": {
+                    "$ref": "#/components/schemas/userValueResponse",
+                    "description": "Details of the user mention."
+                  }
+                },
+                "required": [
+                  "type",
+                  "user"
+                ],
+                "title": "User",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "date": {
+                    "$ref": "#/components/schemas/dateResponse",
+                    "description": "Details of the date mention."
+                  },
+                  "type": {
+                    "const": "date",
+                    "description": "Always `date`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "date"
+                ],
+                "title": "Date",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "link_preview": {
+                    "$ref": "#/components/schemas/linkPreviewMentionResponse",
+                    "description": "Details of the link preview mention."
+                  },
+                  "type": {
+                    "const": "link_preview",
+                    "description": "Always `link_preview`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "link_preview"
+                ],
+                "title": "Link Preview",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "link_mention": {
+                    "$ref": "#/components/schemas/linkMentionResponse",
+                    "description": "Details of the link mention."
+                  },
+                  "type": {
+                    "const": "link_mention",
+                    "description": "Always `link_mention`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "link_mention"
+                ],
+                "title": "Link Mention",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "page": {
+                    "additionalProperties": false,
+                    "description": "Details of the page mention.",
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/idResponse",
+                        "description": "The ID of the page in the mention."
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "type": {
+                    "const": "page",
+                    "description": "Always `page`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "page"
+                ],
+                "title": "Page",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "database": {
+                    "additionalProperties": false,
+                    "description": "Details of the database mention.",
+                    "properties": {
+                      "id": {
+                        "$ref": "#/components/schemas/idResponse",
+                        "description": "The ID of the database in the mention."
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  "type": {
+                    "const": "database",
+                    "description": "Always `database`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "database"
+                ],
+                "title": "Database",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "template_mention": {
+                    "$ref": "#/components/schemas/templateMentionResponse",
+                    "description": "Details of the template mention."
+                  },
+                  "type": {
+                    "const": "template_mention",
+                    "description": "Always `template_mention`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "template_mention"
+                ],
+                "title": "Template Mention",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "custom_emoji": {
+                    "$ref": "#/components/schemas/customEmojiResponse",
+                    "description": "Details of the custom emoji mention."
+                  },
+                  "type": {
+                    "const": "custom_emoji",
+                    "description": "Always `custom_emoji`",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "custom_emoji"
+                ],
+                "title": "Custom Emoji",
+                "type": "object"
+              }
+            ]
+          },
+          "type": {
+            "const": "mention",
+            "description": "Always `mention`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "mention"
+        ],
+        "title": "Mention",
+        "type": "object"
+      },
+      "multiSelectDatabasePropertyConfigResponse": {
+        "properties": {
+          "multi_select": {
+            "additionalProperties": false,
+            "properties": {
+              "options": {
+                "items": {
+                  "$ref": "#/components/schemas/selectPropertyResponse"
+                },
+                "maxItems": 100,
+                "type": "array"
+              }
+            },
+            "required": [
+              "options"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "multi_select",
+            "description": "Always `multi_select`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "multi_select"
+        ],
+        "title": "Multi Select",
+        "type": "object"
+      },
+      "noticonColor": {
+        "description": "One of: `gray`, `lightgray`, `brown`, `yellow`, `orange`, `green`, `blue`, `purple`, `pink`, `red`",
+        "enum": [
+          "gray",
+          "lightgray",
+          "brown",
+          "yellow",
+          "orange",
+          "green",
+          "blue",
+          "purple",
+          "pink",
+          "red"
+        ],
+        "type": "string"
+      },
+      "noticonIconResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/noticonColor",
+            "description": "The color variant of the icon. Valid values: gray, lightgray, brown, yellow, orange, green, blue, purple, pink, red."
+          },
+          "name": {
+            "$ref": "#/components/schemas/noticonName",
+            "description": "The name of the Notion icon (e.g. pizza, meeting, home). See the Notion icon picker for valid names."
+          }
+        },
+        "required": [
+          "name",
+          "color"
+        ],
+        "type": "object"
+      },
+      "noticonName": {
+        "examples": [
+          "pizza",
+          "meeting",
+          "home",
+          "star",
+          "robot"
+        ],
+        "type": "string"
+      },
+      "numberDatabasePropertyConfigResponse": {
+        "properties": {
+          "number": {
+            "additionalProperties": false,
+            "properties": {
+              "format": {
+                "$ref": "#/components/schemas/numberFormat",
+                "description": "The number format for the property."
+              }
+            },
+            "required": [
+              "format"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "number",
+            "description": "Always `number`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "number"
+        ],
+        "title": "Number",
+        "type": "object"
+      },
+      "numberFormat": {
+        "type": "string"
+      },
+      "pageCoverResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/filePageCoverResponse"
+          },
+          {
+            "$ref": "#/components/schemas/externalPageCoverResponse"
+          }
+        ]
+      },
+      "pageIconRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/fileUploadPageIconRequest"
+          },
+          {
+            "$ref": "#/components/schemas/emojiPageIconRequest"
+          },
+          {
+            "$ref": "#/components/schemas/externalPageIconRequest"
+          },
+          {
+            "$ref": "#/components/schemas/customEmojiPageIconRequest"
+          },
+          {
+            "$ref": "#/components/schemas/iconPageIconRequest"
+          }
+        ]
+      },
+      "pageIconResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/emojiPageIconResponse"
+          },
+          {
+            "$ref": "#/components/schemas/filePageIconResponse"
+          },
+          {
+            "$ref": "#/components/schemas/externalPageIconResponse"
+          },
+          {
+            "$ref": "#/components/schemas/customEmojiPageIconResponse"
+          },
+          {
+            "$ref": "#/components/schemas/iconPageIconResponse"
+          }
+        ]
+      },
+      "pageIdParentForBlockBasedObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "page_id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the parent page."
+          },
+          "type": {
+            "const": "page_id",
+            "description": "The parent type.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "page_id"
+        ],
+        "type": "object"
+      },
+      "parentOfDataSourceRequest": {
+        "properties": {
+          "database_id": {
+            "$ref": "#/components/schemas/idRequest",
+            "description": "The ID of the parent database (with or without dashes), for example, 195de9221179449fab8075a27c979105"
+          },
+          "type": {
+            "const": "database_id",
+            "description": "Always `database_id`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database_id"
+        ],
+        "title": "Database Id",
+        "type": "object"
+      },
+      "parentOfDataSourceResponse": {
+        "description": "The parent of the data source. This is typically a database (`database_id`), but for externally synced data sources, can be another data source (`data_source_id`).",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/databaseParentResponse"
+          },
+          {
+            "$ref": "#/components/schemas/dataSourceParentResponse"
+          }
+        ]
+      },
+      "parentOfDatabaseResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/pageIdParentForBlockBasedObjectResponse"
+          },
+          {
+            "$ref": "#/components/schemas/workspaceParentForBlockBasedObjectResponse"
+          },
+          {
+            "$ref": "#/components/schemas/databaseParentResponse"
+          },
+          {
+            "$ref": "#/components/schemas/blockIdParentForBlockBasedObjectResponse"
+          }
+        ]
+      },
+      "partialDataSourceObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the data source."
+          },
+          "object": {
+            "const": "data_source",
+            "description": "The data source object type name.",
+            "type": "string"
+          },
+          "properties": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/databasePropertyConfigResponse"
+            },
+            "description": "The properties schema of the data source.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "object",
+          "id",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "partialUserObjectRequest": {
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/idRequest",
+            "description": "The ID of the user."
+          },
+          "object": {
+            "const": "user",
+            "description": "The user object type name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "partialUserObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/idResponse"
+          },
+          "object": {
+            "const": "user",
+            "description": "Always `user`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "object"
+        ],
+        "type": "object"
+      },
+      "peopleDatabasePropertyConfigResponse": {
+        "properties": {
+          "people": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "people",
+            "description": "Always `people`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "people"
+        ],
+        "title": "People",
+        "type": "object"
+      },
+      "personUserObjectResponse": {
+        "properties": {
+          "person": {
+            "additionalProperties": false,
+            "description": "Details about the person, when the `type` of the user is `person`.",
+            "properties": {
+              "email": {
+                "description": "The email of the person.",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "type": {
+            "const": "person",
+            "description": "Indicates this user is a person.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "person"
+        ],
+        "title": "Person",
+        "type": "object"
+      },
+      "phoneNumberDatabasePropertyConfigResponse": {
+        "properties": {
+          "phone_number": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "phone_number",
+            "description": "Always `phone_number`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "phone_number"
+        ],
+        "title": "Phone Number",
+        "type": "object"
+      },
+      "propertyDescriptionRequest": {
+        "maxLength": 280,
+        "minLength": 1,
+        "type": "string"
+      },
+      "publicApiCommonErrorResponse": {
+        "properties": {
+          "additional_data": {
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          },
+          "object": {
+            "const": "error"
+          }
+        },
+        "required": [
+          "object",
+          "message"
+        ],
+        "type": "object"
+      },
+      "relationDatabasePropertyConfigResponse": {
+        "properties": {
+          "relation": {
+            "$ref": "#/components/schemas/databasePropertyRelationConfigResponse"
+          },
+          "type": {
+            "const": "relation",
+            "description": "Always `relation`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "relation"
+        ],
+        "title": "Relation",
+        "type": "object"
+      },
+      "richTextDatabasePropertyConfigResponse": {
+        "properties": {
+          "rich_text": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "rich_text",
+            "description": "Always `rich_text`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "rich_text"
+        ],
+        "title": "Rich Text",
+        "type": "object"
+      },
+      "richTextItemRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/richTextItemRequestCommon"
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/textRichTextItemRequest"
+              },
+              {
+                "$ref": "#/components/schemas/mentionRichTextItemRequest"
+              },
+              {
+                "$ref": "#/components/schemas/equationRichTextItemRequest"
+              }
+            ]
+          }
+        ]
+      },
+      "richTextItemRequestCommon": {
+        "properties": {
+          "annotations": {
+            "$ref": "#/components/schemas/annotationRequest",
+            "description": "All rich text objects contain an annotations object that sets the styling for the rich text."
+          }
+        },
+        "type": "object"
+      },
+      "richTextItemResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/richTextItemResponseCommon"
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/textRichTextItemResponse"
+              },
+              {
+                "$ref": "#/components/schemas/mentionRichTextItemResponse"
+              },
+              {
+                "$ref": "#/components/schemas/equationRichTextItemResponse"
+              }
+            ]
+          }
+        ]
+      },
+      "richTextItemResponseCommon": {
+        "additionalProperties": false,
+        "properties": {
+          "annotations": {
+            "$ref": "#/components/schemas/annotationResponse",
+            "description": "All rich text objects contain an annotations object that sets the styling for the rich text."
+          },
+          "href": {
+            "description": "A URL that the rich text object links to or mentions.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plain_text": {
+            "description": "The plain text content of the rich text object, without any styling.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plain_text",
+          "href",
+          "annotations"
+        ],
+        "type": "object"
+      },
+      "rollupDatabasePropertyConfigResponse": {
+        "properties": {
+          "rollup": {
+            "additionalProperties": false,
+            "properties": {
+              "function": {
+                "$ref": "#/components/schemas/rollupFunction",
+                "description": "The function to use for the rollup, e.g. count, count_values, percent_not_empty, max."
+              },
+              "relation_property_id": {
+                "type": "string"
+              },
+              "relation_property_name": {
+                "type": "string"
+              },
+              "rollup_property_id": {
+                "type": "string"
+              },
+              "rollup_property_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "function",
+              "rollup_property_name",
+              "relation_property_name",
+              "rollup_property_id",
+              "relation_property_id"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "rollup",
+            "description": "Always `rollup`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "rollup"
+        ],
+        "title": "Rollup",
+        "type": "object"
+      },
+      "rollupFunction": {
+        "enum": [
+          "count",
+          "count_values",
+          "empty",
+          "not_empty",
+          "unique",
+          "show_unique",
+          "percent_empty",
+          "percent_not_empty",
+          "sum",
+          "average",
+          "median",
+          "min",
+          "max",
+          "range",
+          "earliest_date",
+          "latest_date",
+          "date_range",
+          "checked",
+          "unchecked",
+          "percent_checked",
+          "percent_unchecked",
+          "count_per_group",
+          "percent_per_group",
+          "show_original"
+        ],
+        "type": "string"
+      },
+      "selectColor": {
+        "description": "One of: `default`, `gray`, `brown`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `red`",
+        "enum": [
+          "default",
+          "gray",
+          "brown",
+          "orange",
+          "yellow",
+          "green",
+          "blue",
+          "purple",
+          "pink",
+          "red"
+        ],
+        "type": "string"
+      },
+      "selectDatabasePropertyConfigResponse": {
+        "properties": {
+          "select": {
+            "additionalProperties": false,
+            "properties": {
+              "options": {
+                "items": {
+                  "$ref": "#/components/schemas/selectPropertyResponse"
+                },
+                "maxItems": 100,
+                "type": "array"
+              }
+            },
+            "required": [
+              "options"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "select",
+            "description": "Always `select`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "select"
+        ],
+        "title": "Select",
+        "type": "object"
+      },
+      "selectPropertyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/selectColor"
+          },
+          "description": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "color",
+          "description"
+        ],
+        "type": "object"
+      },
+      "singlePropertyDatabasePropertyRelationConfigResponse": {
+        "properties": {
+          "single_property": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "single_property",
+            "description": "Always `single_property`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "single_property"
+        ],
+        "title": "Single Property",
+        "type": "object"
+      },
+      "statusDatabasePropertyConfigResponse": {
+        "properties": {
+          "status": {
+            "additionalProperties": false,
+            "properties": {
+              "groups": {
+                "description": "The groups for the status property.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "color": {
+                      "$ref": "#/components/schemas/selectColor",
+                      "description": "The color of the status group."
+                    },
+                    "id": {
+                      "description": "The ID of the status group.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "The name of the status group.",
+                      "type": "string"
+                    },
+                    "option_ids": {
+                      "description": "The IDs of the status options in this group.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "maxItems": 100,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "color",
+                    "option_ids"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              "options": {
+                "description": "The options for the status property.",
+                "items": {
+                  "$ref": "#/components/schemas/statusPropertyResponse"
+                },
+                "maxItems": 100,
+                "type": "array"
+              }
+            },
+            "required": [
+              "options",
+              "groups"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "status",
+            "description": "Always `status`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "status"
+        ],
+        "title": "Status",
+        "type": "object"
+      },
+      "statusOptionGroup": {
+        "description": "One of: `To-do`, `In progress`, `Complete`",
+        "enum": [
+          "To-do",
+          "In progress",
+          "Complete"
+        ],
+        "type": "string"
+      },
+      "statusOptionUpdateRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/statusOptionUpdateRequestCommon"
+          },
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        ]
+      },
+      "statusOptionUpdateRequestArray": {
+        "items": {
+          "$ref": "#/components/schemas/statusOptionUpdateRequest"
+        },
+        "maxItems": 100,
+        "type": "array"
+      },
+      "statusOptionUpdateRequestCommon": {
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/selectColor"
+          },
+          "description": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "group": {
+            "$ref": "#/components/schemas/statusOptionGroup"
+          }
+        },
+        "type": "object"
+      },
+      "statusPropertyConfigUpdateRequest": {
+        "properties": {
+          "options": {
+            "$ref": "#/components/schemas/statusOptionUpdateRequestArray",
+            "description": "Status options to add or update. Use group to assign an option to To-do, In progress, or Complete. Existing options keep their current group when group is omitted; new options use To-do when present, or the first existing group otherwise."
+          }
+        },
+        "type": "object"
+      },
+      "statusPropertyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/selectColor",
+            "description": "The color of the status option."
+          },
+          "description": {
+            "description": "The description of the status option.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "description": "The ID of the status option.",
+            "type": "string"
+          },
+          "name": {
+            "description": "The name of the status option.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "color",
+          "description"
+        ],
+        "type": "object"
+      },
+      "templateMentionDateTemplateMentionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "template_mention_date": {
+            "description": "The date of the template mention.",
+            "enum": [
+              "today",
+              "now"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "const": "template_mention_date",
+            "description": "Always `template_mention_date`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_mention_date"
+        ],
+        "title": "Template Mention Date",
+        "type": "object"
+      },
+      "templateMentionDateTemplateMentionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "template_mention_date": {
+            "description": "The date of the template mention.",
+            "enum": [
+              "today",
+              "now"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "const": "template_mention_date",
+            "description": "Always `template_mention_date`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "template_mention_date"
+        ],
+        "title": "Template Mention Date",
+        "type": "object"
+      },
+      "templateMentionRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/templateMentionDateTemplateMentionRequest"
+          },
+          {
+            "$ref": "#/components/schemas/templateMentionUserTemplateMentionRequest"
+          }
+        ]
+      },
+      "templateMentionResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/templateMentionDateTemplateMentionResponse"
+          },
+          {
+            "$ref": "#/components/schemas/templateMentionUserTemplateMentionResponse"
+          }
+        ]
+      },
+      "templateMentionUserTemplateMentionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "template_mention_user": {
+            "const": "me",
+            "description": "The user of the template mention.",
+            "type": "string"
+          },
+          "type": {
+            "const": "template_mention_user",
+            "description": "Always `template_mention_user`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_mention_user"
+        ],
+        "title": "Template Mention User",
+        "type": "object"
+      },
+      "templateMentionUserTemplateMentionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "template_mention_user": {
+            "const": "me",
+            "description": "The user of the template mention.",
+            "type": "string"
+          },
+          "type": {
+            "const": "template_mention_user",
+            "description": "Always `template_mention_user`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "template_mention_user"
+        ],
+        "title": "Template Mention User",
+        "type": "object"
+      },
+      "textRichTextItemRequest": {
+        "properties": {
+          "text": {
+            "additionalProperties": false,
+            "description": "If a rich text object's type value is `text`, then the corresponding text field contains an object including the text content and any inline link.",
+            "properties": {
+              "content": {
+                "description": "The actual text content of the text.",
+                "maxLength": 2000,
+                "type": "string"
+              },
+              "link": {
+                "description": "An object with information about any inline link in this text, if included.",
+                "oneOf": [
+                  {
+                    "properties": {
+                      "url": {
+                        "description": "The URL of the link.",
+                        "examples": [
+                          "https://www.notion.com"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "content"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "text",
+            "description": "Always `text`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "Text",
+        "type": "object"
+      },
+      "textRichTextItemResponse": {
+        "properties": {
+          "text": {
+            "additionalProperties": false,
+            "description": "If a rich text object's type value is `text`, then the corresponding text field contains an object including the text content and any inline link.",
+            "properties": {
+              "content": {
+                "description": "The actual text content of the text.",
+                "maxLength": 2000,
+                "type": "string"
+              },
+              "link": {
+                "description": "An object with information about any inline link in this text, if included.",
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "url": {
+                        "description": "The URL of the link.",
+                        "examples": [
+                          "https://www.notion.com"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "content",
+              "link"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "text",
+            "description": "Always `text`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text"
+        ],
+        "title": "Text",
+        "type": "object"
+      },
+      "timeZoneRequest": {
+        "type": "string"
+      },
+      "titleDatabasePropertyConfigResponse": {
+        "properties": {
+          "title": {
+            "$ref": "#/components/schemas/emptyObject"
+          },
+          "type": {
+            "const": "title",
+            "description": "Always `title`",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title"
+        ],
+        "title": "Title",
+        "type": "object"
+      },
+      "uniqueIdDatabasePropertyConfigResponse": {
+        "properties": {
+          "type": {
+            "const": "unique_id",
+            "description": "Always `unique_id`",
+            "type": "string"
+          },
+          "unique_id": {
+            "additionalProperties": false,
+            "properties": {
+              "prefix": {
+                "description": "The prefix for the unique ID.",
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "prefix"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "type",
+          "unique_id"
+        ],
+        "title": "Unique Id",
+        "type": "object"
+      },
+      "urlDatabasePropertyConfigResponse": {
+        "properties": {
+          "type": {
+            "const": "url",
+            "description": "Always `url`",
+            "type": "string"
+          },
+          "url": {
+            "$ref": "#/components/schemas/emptyObject"
+          }
+        },
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "Url",
+        "type": "object"
+      },
+      "userObjectResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/userObjectResponseCommon"
+          },
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/personUserObjectResponse"
+              },
+              {
+                "$ref": "#/components/schemas/botUserObjectResponse"
+              }
+            ]
+          }
+        ]
+      },
+      "userObjectResponseCommon": {
+        "additionalProperties": false,
+        "properties": {
+          "avatar_url": {
+            "description": "The avatar URL of the user.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/idResponse",
+            "description": "The ID of the user."
+          },
+          "name": {
+            "description": "The name of the user.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "object": {
+            "const": "user",
+            "description": "The user object type name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "object",
+          "name",
+          "avatar_url"
+        ],
+        "type": "object"
+      },
+      "userValueResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/partialUserObjectResponse"
+          },
+          {
+            "$ref": "#/components/schemas/userObjectResponse"
+          }
+        ]
+      },
+      "workspaceParentForBlockBasedObjectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "workspace",
+            "description": "The parent type.",
+            "type": "string"
+          },
+          "workspace": {
+            "const": true,
+            "description": "Always true for workspace parent.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "workspace"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "termsOfService": "https://notion.notion.site/Terms-and-Privacy-28ffdd083dc3473e9c2da6ec011b58ac",
+    "title": "Notion API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/data_sources/{data_source_id}": {
+      "patch": {
+        "operationId": "update-a-data-source",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "data_source_id",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/idRequest",
+              "description": "ID of a Notion data source."
+            }
+          },
+          {
+            "$ref": "#/components/parameters/notionVersion"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "icon": {
+                    "description": "Page icon.",
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/pageIconRequest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "in_trash": {
+                    "description": "Whether the database should be moved to or from the trash. If not provided, the trash status will not be updated.",
+                    "type": "boolean"
+                  },
+                  "parent": {
+                    "$ref": "#/components/schemas/parentOfDataSourceRequest",
+                    "description": "The parent of the data source, when moving it to a different database. If not provided, the parent will not be updated."
+                  },
+                  "properties": {
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "allOf": [
+                            {
+                              "properties": {
+                                "description": {
+                                  "description": "The description of the property.",
+                                  "oneOf": [
+                                    {
+                                      "$ref": "#/components/schemas/propertyDescriptionRequest"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "name": {
+                                  "description": "The name of the property.",
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            {
+                              "oneOf": [
+                                {
+                                  "properties": {
+                                    "number": {
+                                      "properties": {
+                                        "format": {
+                                          "$ref": "#/components/schemas/numberFormat"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "type": {
+                                      "const": "number",
+                                      "description": "Always `number`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "number"
+                                  ],
+                                  "title": "Number",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "formula": {
+                                      "properties": {
+                                        "expression": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "type": {
+                                      "const": "formula",
+                                      "description": "Always `formula`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "formula"
+                                  ],
+                                  "title": "Formula",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "select": {
+                                      "properties": {
+                                        "options": {
+                                          "items": {
+                                            "allOf": [
+                                              {
+                                                "properties": {
+                                                  "color": {
+                                                    "$ref": "#/components/schemas/selectColor"
+                                                  },
+                                                  "description": {
+                                                    "oneOf": [
+                                                      {
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  }
+                                                },
+                                                "type": "object"
+                                              },
+                                              {
+                                                "oneOf": [
+                                                  {
+                                                    "properties": {
+                                                      "id": {
+                                                        "type": "string"
+                                                      },
+                                                      "name": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "name"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "properties": {
+                                                      "id": {
+                                                        "type": "string"
+                                                      },
+                                                      "name": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "id"
+                                                    ],
+                                                    "type": "object"
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          },
+                                          "maxItems": 100,
+                                          "type": "array"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "type": {
+                                      "const": "select",
+                                      "description": "Always `select`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "select"
+                                  ],
+                                  "title": "Select",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "multi_select": {
+                                      "properties": {
+                                        "options": {
+                                          "items": {
+                                            "allOf": [
+                                              {
+                                                "properties": {
+                                                  "color": {
+                                                    "$ref": "#/components/schemas/selectColor"
+                                                  },
+                                                  "description": {
+                                                    "oneOf": [
+                                                      {
+                                                        "type": "string"
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  }
+                                                },
+                                                "type": "object"
+                                              },
+                                              {
+                                                "oneOf": [
+                                                  {
+                                                    "properties": {
+                                                      "id": {
+                                                        "type": "string"
+                                                      },
+                                                      "name": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "name"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "properties": {
+                                                      "id": {
+                                                        "type": "string"
+                                                      },
+                                                      "name": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "id"
+                                                    ],
+                                                    "type": "object"
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          },
+                                          "maxItems": 100,
+                                          "type": "array"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "type": {
+                                      "const": "multi_select",
+                                      "description": "Always `multi_select`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "multi_select"
+                                  ],
+                                  "title": "Multi Select",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "status": {
+                                      "$ref": "#/components/schemas/statusPropertyConfigUpdateRequest"
+                                    },
+                                    "type": {
+                                      "const": "status",
+                                      "description": "Always `status`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "status"
+                                  ],
+                                  "title": "Status",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "relation": {
+                                      "allOf": [
+                                        {
+                                          "properties": {
+                                            "data_source_id": {
+                                              "$ref": "#/components/schemas/idRequest"
+                                            }
+                                          },
+                                          "required": [
+                                            "data_source_id"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        {
+                                          "oneOf": [
+                                            {
+                                              "properties": {
+                                                "single_property": {
+                                                  "$ref": "#/components/schemas/emptyObject"
+                                                },
+                                                "type": {
+                                                  "const": "single_property",
+                                                  "description": "Always `single_property`",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "single_property"
+                                              ],
+                                              "title": "Single Property",
+                                              "type": "object"
+                                            },
+                                            {
+                                              "properties": {
+                                                "dual_property": {
+                                                  "properties": {
+                                                    "synced_property_id": {
+                                                      "type": "string"
+                                                    },
+                                                    "synced_property_name": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "type": "object"
+                                                },
+                                                "type": {
+                                                  "const": "dual_property",
+                                                  "description": "Always `dual_property`",
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "dual_property"
+                                              ],
+                                              "title": "Dual Property",
+                                              "type": "object"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "type": {
+                                      "const": "relation",
+                                      "description": "Always `relation`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "relation"
+                                  ],
+                                  "title": "Relation",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "rollup": {
+                                      "allOf": [
+                                        {
+                                          "properties": {
+                                            "function": {
+                                              "$ref": "#/components/schemas/rollupFunction",
+                                              "description": "The function to use for the rollup, e.g. count, count_values, percent_not_empty, max."
+                                            }
+                                          },
+                                          "required": [
+                                            "function"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        {
+                                          "oneOf": [
+                                            {
+                                              "properties": {
+                                                "relation_property_name": {
+                                                  "type": "string"
+                                                },
+                                                "rollup_property_name": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "relation_property_name",
+                                                "rollup_property_name"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "properties": {
+                                                "relation_property_id": {
+                                                  "type": "string"
+                                                },
+                                                "rollup_property_name": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "relation_property_id",
+                                                "rollup_property_name"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "properties": {
+                                                "relation_property_name": {
+                                                  "type": "string"
+                                                },
+                                                "rollup_property_id": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "relation_property_name",
+                                                "rollup_property_id"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            {
+                                              "properties": {
+                                                "relation_property_id": {
+                                                  "type": "string"
+                                                },
+                                                "rollup_property_id": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "relation_property_id",
+                                                "rollup_property_id"
+                                              ],
+                                              "type": "object"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    "type": {
+                                      "const": "rollup",
+                                      "description": "Always `rollup`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "rollup"
+                                  ],
+                                  "title": "Rollup",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "type": {
+                                      "const": "unique_id",
+                                      "description": "Always `unique_id`",
+                                      "type": "string"
+                                    },
+                                    "unique_id": {
+                                      "properties": {
+                                        "prefix": {
+                                          "oneOf": [
+                                            {
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "type": "object"
+                                    }
+                                  },
+                                  "required": [
+                                    "unique_id"
+                                  ],
+                                  "title": "Unique Id",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "title": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "title",
+                                      "description": "Always `title`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "title"
+                                  ],
+                                  "title": "Title",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "rich_text": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "rich_text",
+                                      "description": "Always `rich_text`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "rich_text"
+                                  ],
+                                  "title": "Rich Text",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "type": {
+                                      "const": "url",
+                                      "description": "Always `url`",
+                                      "type": "string"
+                                    },
+                                    "url": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    }
+                                  },
+                                  "required": [
+                                    "url"
+                                  ],
+                                  "title": "Url",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "people": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "people",
+                                      "description": "Always `people`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "people"
+                                  ],
+                                  "title": "People",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "files": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "files",
+                                      "description": "Always `files`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "files"
+                                  ],
+                                  "title": "Files",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "email": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "email",
+                                      "description": "Always `email`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "email"
+                                  ],
+                                  "title": "Email",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "phone_number": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "phone_number",
+                                      "description": "Always `phone_number`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "phone_number"
+                                  ],
+                                  "title": "Phone Number",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "date": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "date",
+                                      "description": "Always `date`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "date"
+                                  ],
+                                  "title": "Date",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "checkbox": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "checkbox",
+                                      "description": "Always `checkbox`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "checkbox"
+                                  ],
+                                  "title": "Checkbox",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "created_by": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "created_by",
+                                      "description": "Always `created_by`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "created_by"
+                                  ],
+                                  "title": "Created By",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "created_time": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "created_time",
+                                      "description": "Always `created_time`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "created_time"
+                                  ],
+                                  "title": "Created Time",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "last_edited_by": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "last_edited_by",
+                                      "description": "Always `last_edited_by`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "last_edited_by"
+                                  ],
+                                  "title": "Last Edited By",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "last_edited_time": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "last_edited_time",
+                                      "description": "Always `last_edited_time`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "last_edited_time"
+                                  ],
+                                  "title": "Last Edited Time",
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "place": {
+                                      "$ref": "#/components/schemas/emptyObject"
+                                    },
+                                    "type": {
+                                      "const": "place",
+                                      "description": "Always `place`",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "place"
+                                  ],
+                                  "title": "Place",
+                                  "type": "object"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "properties": {
+                            "name": {
+                              "description": "The new name of the property.",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "description": "The property schema of the data source. The keys are property names or IDs, and the values are property configuration objects. Properties set to null will be removed.",
+                    "type": "object"
+                  },
+                  "title": {
+                    "description": "Title of data source as it appears in Notion.",
+                    "items": {
+                      "$ref": "#/components/schemas/richTextItemRequest"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/partialDataSourceObjectResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/dataSourceObjectResponse"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_400"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_401"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_403"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_404"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_409"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_429"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_500"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_503"
+                }
+              }
+            },
+            "description": ""
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_504"
+                }
+              }
+            },
+            "description": ""
+          },
+          "529": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error_api_529"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Update a data source",
+        "tags": [
+          "Data sources"
+        ],
+        "x-codeSamples": [
+          {
+            "label": "TypeScript SDK",
+            "lang": "javascript",
+            "source": "import { Client } from \"@notionhq/client\"\n\nconst notion = new Client({ auth: process.env.NOTION_API_KEY })\n\nconst response = await notion.dataSources.update({\n  data_source_id: \"d9824bdc-8445-4327-be8b-5b47500af6ce\",\n  title: [{ text: { content: \"Updated Data Source Name\" } }]\n})"
+          }
+        ],
+        "x-notion-docs-guides": [
+          "https://developers.notion.com/guides/data-apis/working-with-databases"
+        ],
+        "x-notion-docs-ref": "https://developers.notion.com/reference/update-a-data-source"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.notion.com"
+    }
+  ]
+}

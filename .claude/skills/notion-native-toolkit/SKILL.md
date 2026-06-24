@@ -161,12 +161,13 @@ notion-native browser sync-chrome-cookies \
 # 보조: 자동화 브라우저 로그인 시도
 notion-native browser login --profile my-workspace --headed
 
-# Notion 이메일 인증 코드가 필요할 때 Gmail readonly token 파일로 자동 입력
+# 권장: 실제 Chrome CDP 세션으로 Notion Magic Link/6자리 코드 메일 처리
 notion-native browser login \
   --profile my-workspace \
   --gmail-env-file /path/to/.env \
   --gmail-token-file /path/to/gmail_token.json \
-  --gmail-user you@worxphere.ai
+  --gmail-user you@worxphere.ai \
+  --cdp-url http://127.0.0.1:50061
 ```
 
 ## 공식 API / ntn 연동
@@ -235,10 +236,10 @@ Chrome `token_v2`가 없거나 만료되면 integration 테스트는 skip되어�
 `internal_api_authorized`가 `true`인지 확인하세요.
 실제 Notion 쓰기 기능은 별도 승인된 테스트 페이지/DB에서만 확인하세요.
 브라우저 로그인은 `--gmail-token-file` 또는 `NOTION_GMAIL_TOKEN_FILE`/`GMAIL_TOKEN_FILE`로
-Gmail API `gmail.readonly` authorized-user JSON을 받아 Notion 6자리 인증 코드를 자동 입력할 수 있습니다.
-`--gmail-env-file`은 `GMAIL_*`/`NOTION_GMAIL_*` 값만 로드합니다.
-Notion이 자동화 브라우저에서 인증 메일을 발송하지 않을 수 있으므로, 그 경우 수동 Chrome 로그인 후
-`sync-chrome-cookies`를 사용하세요.
+Gmail API `gmail.readonly` authorized-user JSON을 받아 Notion 6자리 인증 코드 또는 Magic Link를 자동 처리할 수 있습니다.
+`--gmail-env-file`은 `GMAIL_*`/`NOTION_GMAIL_*` 값만 로드하며, quota project가 필요하면 `GMAIL_QUOTA_PROJECT`도 포함하세요.
+일반 Playwright Chromium에서 인증 메일이 오지 않으면 실제 Chrome 원격 디버깅 세션을 띄우고
+`browser login --cdp-url http://127.0.0.1:<port>`를 사용하세요.
 
 ## 인증 트러블슈팅
 

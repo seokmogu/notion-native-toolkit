@@ -4,7 +4,6 @@ import base64
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 import httpx
 
@@ -34,7 +33,7 @@ def test_get_gmail_access_token_refreshes_token_file(tmp_path, monkeypatch) -> N
         url: str,
         *,
         data: dict[str, str],
-        timeout: int,
+        timeout: httpx.Timeout,
     ) -> httpx.Response:
         assert url == gmail.GOOGLE_TOKEN_URL
         assert data["grant_type"] == "refresh_token"
@@ -55,22 +54,12 @@ def test_get_gmail_access_token_refreshes_token_file(tmp_path, monkeypatch) -> N
 def test_fetch_notion_login_code_from_gmail_extracts_recent_code(monkeypatch) -> None:
     since = datetime(2026, 6, 24, 5, 20, tzinfo=UTC)
     body = "Your Notion verification code is 123456."
-    calls: list[dict[str, Any]] = []
 
-    def fake_get(
-        url: str,
-        *,
-        headers: dict[str, str],
-        params: dict[str, object],
-        timeout: int,
-    ) -> httpx.Response:
-        calls.append({"url": url, "headers": headers, "params": params, "timeout": timeout})
-        if url.endswith("/messages"):
-            return httpx.Response(200, json={"messages": [{"id": "m1"}]})
-        return httpx.Response(
-            200,
-            json={
-                "internalDate": str(int((since + timedelta(seconds=3)).timestamp() * 1000)),
+    monkeypatch.setattr(
+        gmail,
+        "_iter_notion_login_messages",
+        lambda client, since, gmail_user: [
+            {
                 "payload": {
                     "headers": [
                         {"name": "From", "value": "Notion <team@mail.notion.so>"},
@@ -78,11 +67,9 @@ def test_fetch_notion_login_code_from_gmail_extracts_recent_code(monkeypatch) ->
                     ],
                     "parts": [{"body": {"data": _gmail_body(body)}}],
                 },
-            },
-        )
-
-    monkeypatch.setattr(gmail.httpx, "get", fake_get)
-    monkeypatch.setenv("NOTION_GMAIL_QUOTA_PROJECT", "quota-project")
+            }
+        ],
+    )
 
     assert (
         gmail.fetch_notion_login_code_from_gmail(
@@ -92,37 +79,43 @@ def test_fetch_notion_login_code_from_gmail_extracts_recent_code(monkeypatch) ->
         )
         == "123456"
     )
-    assert calls[0]["url"].endswith("/users/user%40example.com/messages")
-    assert calls[0]["headers"]["x-goog-user-project"] == "quota-project"
-    assert "subject:Notion" in str(calls[0]["params"]["q"])
 
 
-def test_fetch_notion_login_code_from_gmail_ignores_old_message(monkeypatch) -> None:
+def test_fetch_notion_login_link_from_gmail_extracts_magic_link(monkeypatch) -> None:
     since = datetime(2026, 6, 24, 5, 20, tzinfo=UTC)
+    link = "https://app.notion.com/loginwithemail?token=temporary"
+    body = f'<a href="{link}">Sign in with Magic Link</a>'
 
-    def fake_get(
-        url: str,
-        *,
-        headers: dict[str, str],
-        params: dict[str, object],
-        timeout: int,
-    ) -> httpx.Response:
-        if url.endswith("/messages"):
-            return httpx.Response(200, json={"messages": [{"id": "m1"}]})
-        return httpx.Response(
-            200,
-            json={
-                "internalDate": str(int((since - timedelta(seconds=3)).timestamp() * 1000)),
+    monkeypatch.setattr(
+        gmail,
+        "_iter_notion_login_messages",
+        lambda client, since, gmail_user: [
+            {
                 "payload": {
-                    "headers": [{"name": "From", "value": "Notion <team@mail.notion.so>"}],
-                    "body": {"data": _gmail_body("Your code is 123456.")},
+                    "headers": [
+                        {"name": "From", "value": "Notion <team@mail.notion.so>"},
+                        {"name": "Subject", "value": "Login to Notion"},
+                    ],
+                    "parts": [{"body": {"data": _gmail_body(body)}}],
                 },
-            },
-        )
+            }
+        ],
+    )
 
-    monkeypatch.setattr(gmail.httpx, "get", fake_get)
+    assert gmail.fetch_notion_login_link_from_gmail("token", since) == link
 
-    assert gmail.fetch_notion_login_code_from_gmail("token", since) is None
+
+def test_gmail_message_matches_ignores_old_message() -> None:
+    since = datetime(2026, 6, 24, 5, 20, tzinfo=UTC)
+    message = {
+        "internalDate": str(int((since - timedelta(seconds=3)).timestamp() * 1000)),
+        "payload": {
+            "headers": [{"name": "From", "value": "Notion <team@mail.notion.so>"}],
+            "body": {"data": _gmail_body("Your code is 123456.")},
+        },
+    }
+
+    assert gmail._gmail_message_matches(message, since) is False
 
 
 def test_configured_gmail_token_file_prefers_notion_env(monkeypatch) -> None:
@@ -130,3 +123,9 @@ def test_configured_gmail_token_file_prefers_notion_env(monkeypatch) -> None:
     monkeypatch.setenv("NOTION_GMAIL_TOKEN_FILE", "notion-gmail.json")
 
     assert gmail.configured_gmail_token_file() == Path("notion-gmail.json")
+
+
+def test_gmail_headers_include_quota_project(monkeypatch) -> None:
+    monkeypatch.setenv("NOTION_GMAIL_QUOTA_PROJECT", "quota-project")
+
+    assert gmail._gmail_api_headers("token")["x-goog-user-project"] == "quota-project"

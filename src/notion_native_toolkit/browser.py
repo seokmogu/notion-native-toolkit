@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from .gmail import (
     configured_gmail_token_file,
     configured_gmail_user,
     fetch_notion_login_code_from_gmail,
+    fetch_notion_login_link_from_gmail,
     get_gmail_access_token,
 )
 from .profiles import WorkspaceProfile
@@ -27,6 +29,21 @@ _OTP_SELECTORS = [
     'input[aria-label*="code" i]',
     'input[placeholder*="code" i]',
 ]
+
+
+@dataclass(slots=True)
+class _LoginBrowserSession:
+    manager: Any
+    context: Any
+    page: Any
+    close_context: bool
+
+    async def close(self) -> None:
+        if self.close_context:
+            await self.context.close()
+        else:
+            await self.page.close()
+        await self.manager.__aexit__(None, None, None)
 
 
 class NotionBrowserAutomation:
@@ -66,6 +83,7 @@ class NotionBrowserAutomation:
         timeout_seconds: int = 180,
         gmail_token_file: str | None = None,
         gmail_user: str | None = None,
+        cdp_url: str | None = None,
     ) -> str:
         workspace_url = self.profile.workspace_url or "https://www.notion.so"
         email = resolve_credential(self.profile.browser_email)
@@ -74,7 +92,9 @@ class NotionBrowserAutomation:
         token_file = configured_gmail_token_file(gmail_token_file)
         effective_gmail_user = configured_gmail_user(gmail_user)
         gmail_access_token: str | None = None
-        manager, context, page = await self._open_context(headed=headed)
+        session = await self._open_login_context(headed=headed, cdp_url=cdp_url)
+        context = session.context
+        page = session.page
         try:
             await page.goto(workspace_url)
             await page.wait_for_load_state("domcontentloaded")
@@ -96,7 +116,20 @@ class NotionBrowserAutomation:
                 if not code_submitted and token_file is not None:
                     if gmail_access_token is None:
                         gmail_access_token = get_gmail_access_token(token_file)
-                    if gmail_access_token is not None and await self._has_code_input(page):
+                    if gmail_access_token is not None:
+                        link = fetch_notion_login_link_from_gmail(
+                            gmail_access_token,
+                            login_started_at,
+                            gmail_user=effective_gmail_user,
+                        )
+                        if link:
+                            await page.goto(link)
+                            code_submitted = True
+                    if (
+                        gmail_access_token is not None
+                        and not code_submitted
+                        and await self._has_code_input(page)
+                    ):
                         code = fetch_notion_login_code_from_gmail(
                             gmail_access_token,
                             login_started_at,
@@ -111,8 +144,33 @@ class NotionBrowserAutomation:
                 await page.wait_for_timeout(1000)
             raise RuntimeError("Timed out waiting for a logged-in Notion session")
         finally:
-            await context.close()
-            await manager.__aexit__(None, None, None)
+            await session.close()
+
+    async def _open_login_context(
+        self,
+        *,
+        headed: bool,
+        cdp_url: str | None,
+    ) -> _LoginBrowserSession:
+        if not cdp_url:
+            manager, context, page = await self._open_context(headed=headed)
+            return _LoginBrowserSession(
+                manager=manager,
+                context=context,
+                page=page,
+                close_context=True,
+            )
+        playwright_context = await self._playwright()
+        playwright = await playwright_context.__aenter__()
+        browser = await playwright.chromium.connect_over_cdp(cdp_url)
+        context = browser.contexts[0] if browser.contexts else await browser.new_context()
+        page = await context.new_page()
+        return _LoginBrowserSession(
+            manager=playwright_context,
+            context=context,
+            page=page,
+            close_context=False,
+        )
 
     async def _attempt_login(self, page: Any, email: str, password: str) -> None:
         email_selectors = [

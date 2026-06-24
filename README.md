@@ -387,20 +387,25 @@ payload를 그대로 사용하며, `automation` / `automation_action` / `collect
 
 ## 브라우저 세션 인증 (token_v2)
 
-내부 API는 브라우저 세션 쿠키(`token_v2`)로 인증합니다. Notion은 자동화 브라우저에서 이메일 인증 발송을 생략하거나 세션을 만료 처리할 수 있으므로, 운영 경로는 수동 Chrome 로그인 세션을 Playwright storage state로 동기화하는 방식입니다.
+내부 API는 브라우저 세션 쿠키(`token_v2`)로 인증합니다. 현재 검증된 운영 경로는 실제 Chrome 원격 디버깅 세션에 붙어서 Notion Magic Link 메일을 열고, 그 세션을 Playwright storage state로 저장하는 방식입니다. 저장된 `.app.notion.com` 세션 토큰은 내부 API 인증에 사용할 수 있습니다.
 
 ### 권장 사용법
 
 ```bash
-# 1) 일반 Chrome에서 Notion에 수동 로그인
-# 2) Chrome 쿠키를 프로필의 browser_state_path로 동기화
+# 1) 원격 디버깅이 켜진 실제 Chrome에서 Gmail Magic Link 로그인
+notion-native browser login \
+  --profile worxphere \
+  --gmail-env-file /path/to/.env \
+  --cdp-url http://127.0.0.1:50061
+
+# 2) 일반 Chrome 프로필 쿠키도 함께 동기화하고 내부 API 인증 확인
 notion-native browser sync-chrome-cookies \
   --profile worxphere \
   --chrome-profile "Profile 1" \
   --validate-internal
 ```
 
-`--validate-internal`은 `getVisibleUsers` read-only 내부 API를 호출해 동기화된 `token_v2`가 실제로 유효한지 확인합니다. 결과의 `internal_api_authorized`가 `true`여야 내부 API integration 테스트가 실행됩니다.
+`browser login --cdp-url`은 Gmail의 Notion 6자리 코드와 Magic Link 메일을 모두 처리합니다. `--validate-internal`은 `getVisibleUsers` read-only 내부 API를 호출해 저장된 `token_v2`가 실제로 유효한지 확인합니다. 결과의 `internal_api_authorized`가 `true`여야 내부 API integration 테스트가 실행됩니다.
 
 ### 자동 로그인 보조 경로
 
@@ -423,7 +428,7 @@ client = NotionInternalClient(
 
 ### 주의사항
 
-- 자동 로그인은 Notion의 이메일 인증/봇 판정 정책에 따라 인증 메일이 발송되지 않을 수 있습니다.
+- 일반 Playwright Chromium 로그인은 Notion의 이메일 인증/봇 판정 정책에 따라 인증 메일이 발송되지 않을 수 있습니다. 이 경우 실제 Chrome CDP 경로를 사용하세요.
 - 쿠키 만료일이 미래여도 Notion 내부 API가 `login_custom_session_expired`를 반환하면 세션은 만료된 것입니다.
 - 수동으로 Notion에 다시 로그인한 뒤 `browser sync-chrome-cookies --validate-internal`을 재실행하세요.
 
@@ -578,16 +583,30 @@ notion-native deploy docs/spec.md \
 ### 브라우저 자동화
 
 ```bash
+# 필요 시 별도 Chrome 원격 디버깅 세션을 먼저 실행
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=50061 \
+  --user-data-dir "$(mktemp -d)" \
+  --no-first-run \
+  --no-default-browser-check \
+  --new-window about:blank
+
 # 수동 Chrome 로그인 세션을 toolkit browser_state로 동기화
 notion-native browser sync-chrome-cookies \
   --profile worxphere \
   --chrome-profile "Profile 1" \
   --validate-internal
 
-# 자동화 브라우저로 로그인 시도 (Notion이 인증 메일을 발송하지 않을 수 있음)
+# 실제 Chrome CDP 세션으로 로그인. Gmail Magic Link와 6자리 코드를 모두 처리
+notion-native browser login \
+  --profile worxphere \
+  --gmail-env-file /path/to/.env \
+  --cdp-url http://127.0.0.1:50061
+
+# 새 Chromium으로 로그인 시도 (Notion이 인증 메일을 발송하지 않을 수 있음)
 notion-native browser login --profile worxphere --headed
 
-# Notion 이메일 인증 코드가 필요하면 Gmail readonly token 파일로 자동 입력
+# Notion 이메일 인증이 필요하면 Gmail readonly token 파일로 자동 처리
 notion-native browser login \
   --profile worxphere \
   --gmail-env-file /path/to/.env \
@@ -605,6 +624,7 @@ notion-native browser create-teamspace --profile worxphere --name "새 팀"
 `NOTION_GMAIL_TOKEN_FILE`/`GMAIL_TOKEN_FILE`과 `NOTION_GMAIL_USER`/`GMAIL_USER`
 환경변수도 지원합니다.
 `--gmail-env-file`은 `GMAIL_*`/`NOTION_GMAIL_*` 값만 로드합니다.
+Gmail API 호출에 quota project가 필요한 환경에서는 `GMAIL_QUOTA_PROJECT`도 같은 env 파일에 둡니다.
 `browser sync-chrome-cookies --validate-internal`의 `internal_api_authorized`가
 `false`이면 쿠키는 추출됐지만 Notion 내부 API가 세션을 만료 처리한 상태입니다.
 

@@ -971,6 +971,7 @@ def cmd_browser_login(args: argparse.Namespace) -> int:
             headed=args.headed,
             gmail_token_file=args.gmail_token_file,
             gmail_user=args.gmail_user,
+            cdp_url=args.cdp_url,
         )
     )
     print(state_path)
@@ -1591,6 +1592,13 @@ def build_parser() -> argparse.ArgumentParser:
     browser_login.add_argument(
         "--gmail-env-file",
         help="Optional env file providing GMAIL_* or NOTION_GMAIL_* settings",
+    )
+    browser_login.add_argument(
+        "--cdp-url",
+        help=(
+            "Attach to an already-running Chrome remote debugging endpoint, "
+            "for example http://127.0.0.1:50061"
+        ),
     )
     browser_login.set_defaults(func=cmd_browser_login)
 

@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import httpx
 
@@ -17,6 +17,7 @@ GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 NOTION_CODE_PATTERN = re.compile(r"\b(\d{6})\b")
 NOTION_SENDER_PATTERNS = ("notion", "makenotion")
+GMAIL_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 
 def configured_gmail_token_file(value: str | None = None) -> Path | None:
@@ -85,36 +86,63 @@ def fetch_notion_login_code_from_gmail(
     *,
     gmail_user: str = "me",
 ) -> str | None:
+    with _gmail_client(access_token) as client:
+        for message in _iter_notion_login_messages(
+            client,
+            since,
+            gmail_user=gmail_user,
+        ):
+            text = _notion_message_text(message)
+            match = NOTION_CODE_PATTERN.search(text)
+            if match:
+                return match.group(1)
+    return None
+
+
+def fetch_notion_login_link_from_gmail(
+    access_token: str,
+    since: datetime,
+    *,
+    gmail_user: str = "me",
+) -> str | None:
+    with _gmail_client(access_token) as client:
+        for message in _iter_notion_login_messages(
+            client,
+            since,
+            gmail_user=gmail_user,
+        ):
+            link = _notion_magic_link(message)
+            if link:
+                return link
+    return None
+
+
+def _iter_notion_login_messages(
+    client: httpx.Client,
+    since: datetime,
+    *,
+    gmail_user: str,
+) -> list[dict[str, Any]]:
     after = since.astimezone(UTC).strftime("%Y/%m/%d")
     query = f"(from:notion OR from:makenotion OR subject:Notion) after:{after}"
-    response = httpx.get(
+    response = client.get(
         f"{GMAIL_BASE}/users/{quote(gmail_user, safe='')}/messages",
-        headers=_gmail_api_headers(access_token),
         params={"q": query, "maxResults": 20},
-        timeout=15,
     )
     if response.status_code != 200:
-        return None
+        return []
+    messages: list[dict[str, Any]] = []
     for item in response.json().get("messages", []):
         if not isinstance(item, dict):
             continue
         message_id = str(item.get("id") or "")
         if not message_id:
             continue
-        message = _get_gmail_message(access_token, message_id, gmail_user=gmail_user)
+        message = _get_gmail_message(client, message_id, gmail_user=gmail_user)
         if not _gmail_message_matches(message, since):
             continue
-        headers = _gmail_headers(message.get("payload") or {})
-        text = " ".join(
-            [
-                headers.get("subject", ""),
-                html.unescape(_gmail_message_text(message.get("payload") or {})),
-            ]
-        )
-        match = NOTION_CODE_PATTERN.search(text)
-        if match:
-            return match.group(1)
-    return None
+        messages.append(message)
+    return messages
 
 
 def _gmail_token_data(token_file: Path | None) -> dict[str, Any]:
@@ -148,7 +176,7 @@ def _refresh_gmail_access_token(
             "refresh_token": refresh_token,
             "grant_type": "refresh_token",
         },
-        timeout=15,
+        timeout=GMAIL_TIMEOUT,
     )
     if response.status_code != 200:
         return {}
@@ -163,17 +191,22 @@ def _refresh_gmail_access_token(
     return payload
 
 
+def _gmail_client(access_token: str) -> httpx.Client:
+    return httpx.Client(
+        headers=_gmail_api_headers(access_token),
+        timeout=GMAIL_TIMEOUT,
+    )
+
+
 def _get_gmail_message(
-    access_token: str,
+    client: httpx.Client,
     message_id: str,
     *,
     gmail_user: str,
 ) -> dict[str, Any]:
-    response = httpx.get(
+    response = client.get(
         f"{GMAIL_BASE}/users/{quote(gmail_user, safe='')}/messages/{message_id}",
-        headers=_gmail_api_headers(access_token),
         params={"format": "full"},
-        timeout=15,
     )
     if response.status_code != 200:
         return {}
@@ -205,6 +238,38 @@ def _gmail_message_matches(message: dict[str, Any], since: datetime) -> bool:
     sender = headers.get("from", "").casefold()
     subject = headers.get("subject", "").casefold()
     return any(pattern in sender or pattern in subject for pattern in NOTION_SENDER_PATTERNS)
+
+
+def _notion_message_text(message: dict[str, Any]) -> str:
+    headers = _gmail_headers(message.get("payload") or {})
+    return " ".join(
+        [
+            headers.get("subject", ""),
+            str(message.get("snippet") or ""),
+            html.unescape(_gmail_message_text(message.get("payload") or {})),
+        ]
+    )
+
+
+def _notion_magic_link(message: dict[str, Any]) -> str | None:
+    text = _notion_message_text(message)
+    candidates = [
+        *_extract_href_links(text),
+        *re.findall(r"https?://[^\s\"'<>]+", text),
+    ]
+    for raw_link in candidates:
+        link = html.unescape(raw_link).replace("&amp;", "&")
+        parsed = urlparse(link)
+        if "notion." not in parsed.netloc:
+            continue
+        lowered = f"{parsed.path}?{parsed.query}".casefold()
+        if any(marker in lowered for marker in ("login", "auth", "magic")):
+            return link
+    return None
+
+
+def _extract_href_links(text: str) -> list[str]:
+    return re.findall(r"""href=["']([^"']+)["']""", text)
 
 
 def _gmail_headers(payload: object) -> dict[str, str]:

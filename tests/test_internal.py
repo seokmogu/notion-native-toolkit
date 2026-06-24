@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -102,12 +101,13 @@ class TestUsers:
         expected = {"value": {"id": "u1"}}
         with patch.object(client, "_post", return_value=expected) as mock:
             result = client.find_user("test@example.com")
+        assert result == expected
         payload = mock.call_args[0][1]
         assert payload["email"] == "test@example.com"
 
     def test_get_visible_users(self, client: NotionInternalClient) -> None:
         expected = {"users": [], "userSimilarity": {}}
-        with patch.object(client, "_post", return_value=expected) as mock:
+        with patch.object(client, "_post", return_value=expected):
             result = client.get_visible_users()
         assert result == expected
 
@@ -115,6 +115,7 @@ class TestUsers:
         expected = {"teams": [{"id": "t1"}]}
         with patch.object(client, "_post", return_value=expected) as mock:
             result = client.get_teams(team_types=["Joined", "Default"])
+        assert result == expected
         payload = mock.call_args[0][1]
         assert payload["teamTypes"] == ["Joined", "Default"]
 
@@ -156,6 +157,7 @@ class TestContent:
         expected = {"recordMap": {}, "cursors": {}}
         with patch.object(client, "_post", return_value=expected) as mock:
             result = client.load_page_chunk("page-id")
+        assert result == expected
         payload = mock.call_args[0][1]
         assert payload["page"]["id"] == "page-id"
 
@@ -163,6 +165,7 @@ class TestContent:
         expected = {"backlinks": []}
         with patch.object(client, "_post", return_value=expected) as mock:
             result = client.get_backlinks("block-id")
+        assert result == expected
         payload = mock.call_args[0][1]
         assert payload["block"]["id"] == "block-id"
 
@@ -170,6 +173,7 @@ class TestContent:
         expected = {"detectedLanguage": "ko"}
         with patch.object(client, "_post", return_value=expected) as mock:
             result = client.detect_language("page-id")
+        assert result == expected
         payload = mock.call_args[0][1]
         assert payload["pagePointer"]["id"] == "page-id"
         assert payload["pagePointer"]["spaceId"] == SPACE_ID

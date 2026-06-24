@@ -48,6 +48,9 @@ def client() -> NotionInternalClient:
         user_id=user_id,
         rate_limit=0.5,
     )
+    if c.get_visible_users() is None:
+        c.close()
+        pytest.skip("token_v2 is expired or does not authorize internal API reads")
     yield c
     c.close()
 

@@ -3,10 +3,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
+import os
 from pathlib import Path
 from typing import Any, cast
 
 from .api_capture import capture_api_surface, diff_api_indexes, parse_capture_target
+from .chrome_cookies import sync_chrome_cookies_to_storage_state
 from .credentials import CredentialRef, store_keychain_secret
 from .deploy import deploy
 from .markdown import (
@@ -37,6 +40,35 @@ def _load_json_object(path: str, option_name: str = "--payload") -> dict[str, An
     if not isinstance(payload, dict):
         raise ValueError(f"{option_name} must point to a JSON object")
     return cast(dict[str, Any], payload)
+
+
+def _load_prefixed_env_file(path: str, prefixes: tuple[str, ...]) -> None:
+    env_path = Path(path).expanduser()
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key.startswith(prefixes):
+            continue
+        parsed_value = _strip_env_value(value)
+        if key.endswith("TOKEN_FILE"):
+            token_path = Path(parsed_value).expanduser()
+            if not token_path.is_absolute():
+                parsed_value = str(env_path.parent / token_path)
+        os.environ.setdefault(key, parsed_value)
+
+
+def _strip_env_value(value: str) -> str:
+    stripped = value.strip()
+    if (
+        len(stripped) >= 2
+        and stripped[0] == stripped[-1]
+        and stripped[0] in {"'", '"'}
+    ):
+        return stripped[1:-1]
+    return stripped
 
 
 def _profile_or_fail(name: str) -> WorkspaceProfile:
@@ -928,10 +960,52 @@ def cmd_cli_page_trash(args: argparse.Namespace) -> int:
 
 
 def cmd_browser_login(args: argparse.Namespace) -> int:
+    if args.gmail_env_file:
+        _load_prefixed_env_file(
+            args.gmail_env_file,
+            prefixes=("GMAIL_", "NOTION_GMAIL_"),
+        )
     toolkit = NotionToolkit.from_profile(args.profile)
-    state_path = asyncio.run(toolkit.browser.login(headed=args.headed))
+    state_path = asyncio.run(
+        toolkit.browser.login(
+            headed=args.headed,
+            gmail_token_file=args.gmail_token_file,
+            gmail_user=args.gmail_user,
+        )
+    )
     print(state_path)
     return 0
+
+
+def cmd_browser_sync_chrome_cookies(args: argparse.Namespace) -> int:
+    toolkit = NotionToolkit.from_profile(args.profile)
+    if not toolkit.profile.browser_state_path:
+        raise ValueError("browser_state_path is not configured")
+    result = sync_chrome_cookies_to_storage_state(
+        toolkit.profile.browser_state_path,
+        chrome_profile=args.chrome_profile,
+        chrome_user_data_dir=args.chrome_user_data_dir,
+        domain_contains=args.domain,
+    )
+    payload = result.to_dict()
+    if args.validate_internal:
+        payload["internal_api_authorized"] = _validate_internal_api(args.profile)
+    _print_json(payload)
+    return 0
+
+
+def _validate_internal_api(profile: str) -> bool | None:
+    toolkit = NotionToolkit.from_profile(profile)
+    if toolkit.internal is None:
+        return None
+    internal_logger = logging.getLogger("notion_native_toolkit.internal")
+    previous_disabled = internal_logger.disabled
+    internal_logger.disabled = True
+    try:
+        return toolkit.internal.get_visible_users() is not None
+    finally:
+        internal_logger.disabled = previous_disabled
+        toolkit.internal.close()
 
 
 def cmd_browser_list_teamspaces(args: argparse.Namespace) -> int:
@@ -1506,7 +1580,44 @@ def build_parser() -> argparse.ArgumentParser:
     browser_login = browser_subparsers.add_parser("login")
     browser_login.add_argument("--profile", required=True)
     browser_login.add_argument("--headed", action="store_true")
+    browser_login.add_argument(
+        "--gmail-token-file",
+        help="Gmail readonly token JSON used to read Notion login codes",
+    )
+    browser_login.add_argument(
+        "--gmail-user",
+        help="Gmail user mailbox for Notion login codes (default: GMAIL_USER or me)",
+    )
+    browser_login.add_argument(
+        "--gmail-env-file",
+        help="Optional env file providing GMAIL_* or NOTION_GMAIL_* settings",
+    )
     browser_login.set_defaults(func=cmd_browser_login)
+
+    browser_sync = browser_subparsers.add_parser("sync-chrome-cookies")
+    browser_sync.add_argument("--profile", required=True)
+    browser_sync.add_argument(
+        "--chrome-profile",
+        help=(
+            "Chrome profile name such as 'Default' or 'Profile 1'. "
+            "If omitted, the first profile containing Notion cookies is used."
+        ),
+    )
+    browser_sync.add_argument(
+        "--chrome-user-data-dir",
+        help="Chrome user data directory (default: macOS Google Chrome profile root)",
+    )
+    browser_sync.add_argument(
+        "--domain",
+        default="notion.so",
+        help="Cookie domain substring to sync (default: notion.so)",
+    )
+    browser_sync.add_argument(
+        "--validate-internal",
+        action="store_true",
+        help="After syncing, call a read-only internal API endpoint to check token_v2 authorization",
+    )
+    browser_sync.set_defaults(func=cmd_browser_sync_chrome_cookies)
 
     browser_list = browser_subparsers.add_parser("list-teamspaces")
     browser_list.add_argument("--profile", required=True)

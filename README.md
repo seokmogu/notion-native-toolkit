@@ -28,7 +28,7 @@ Notion의 공식 API(v1)는 페이지, 블록, 데이터베이스 등 기본 CRU
 | **페이지 백링크 조회** | - | O |
 | **언어 감지** | - | O |
 | **Integration/봇 관리** | - | O |
-| **자동 로그인 (token_v2 발급)** | - | O |
+| **브라우저 세션 동기화 (token_v2)** | - | O |
 
 ## 아키텍처
 
@@ -168,21 +168,17 @@ Blocks API는 현재 공식 버전에 맞춰 `fetch_block()`, `fetch_children()`
 ```python
 from notion_native_toolkit.internal import NotionInternalClient
 
-# 방법 A: 자동 로그인으로 token_v2 발급
-creds = NotionInternalClient.login(
-    email="user@example.com",
-    password="password",
-    space_id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-)
-client = NotionInternalClient(
-    token_v2=creds["token_v2"],
-    space_id=creds["space_id"],
-    user_id=creds["user_id"],
-)
-
-# 방법 B: 프로필에 token_v2 설정 후 toolkit에서 사용
+# 방법 A: Chrome에서 수동 로그인한 세션을 동기화한 뒤 toolkit에서 사용
+# notion-native browser sync-chrome-cookies --profile worxphere --validate-internal
 toolkit = NotionToolkit.from_profile("worxphere")
 client = toolkit.require_internal()
+
+# 방법 B: token_v2를 직접 알고 있을 때 클라이언트 생성
+client = NotionInternalClient(
+    token_v2="token_v2_cookie_value",
+    space_id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    user_id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+)
 ```
 
 #### 검색
@@ -389,31 +385,28 @@ payload를 그대로 사용하며, `automation` / `automation_action` / `collect
 캡처 기록: `docs/automation-webhook-capture.json`,
 `docs/automation-add-page-capture.json`.
 
-## 자동 로그인 (token_v2 발급)
+## 브라우저 세션 인증 (token_v2)
 
-내부 API는 브라우저 세션 쿠키(`token_v2`)로 인증합니다. 이 SDK는 Playwright를 사용해 로그인을 자동화합니다.
+내부 API는 브라우저 세션 쿠키(`token_v2`)로 인증합니다. Notion은 자동화 브라우저에서 이메일 인증 발송을 생략하거나 세션을 만료 처리할 수 있으므로, 운영 경로는 수동 Chrome 로그인 세션을 Playwright storage state로 동기화하는 방식입니다.
 
-### 로그인 플로우
+### 권장 사용법
 
-```
-1. getLoginOptions(email)
-   → loginOptionsToken, challengeProvider: "hcaptcha"
-
-2. hCaptcha 자동 통과 (headed Chrome에서 자동 해결)
-
-3. loginWithEmail(email, password, challengeToken, loginOptionsToken)
-   → Set-Cookie: token_v2=... (만료: ~1년)
-
-4. authValidate()
-   → 세션 검증 완료
+```bash
+# 1) 일반 Chrome에서 Notion에 수동 로그인
+# 2) Chrome 쿠키를 프로필의 browser_state_path로 동기화
+notion-native browser sync-chrome-cookies \
+  --profile worxphere \
+  --chrome-profile "Profile 1" \
+  --validate-internal
 ```
 
-### 사용법
+`--validate-internal`은 `getVisibleUsers` read-only 내부 API를 호출해 동기화된 `token_v2`가 실제로 유효한지 확인합니다. 결과의 `internal_api_authorized`가 `true`여야 내부 API integration 테스트가 실행됩니다.
+
+### 자동 로그인 보조 경로
 
 ```python
 from notion_native_toolkit.internal import NotionInternalClient
 
-# 로그인하여 token_v2 발급 (브라우저가 화면 밖에서 자동 실행)
 creds = NotionInternalClient.login(
     email="user@example.com",
     password="password",
@@ -430,9 +423,9 @@ client = NotionInternalClient(
 
 ### 주의사항
 
-- `headed=True`(기본값)이어야 hCaptcha가 자동 통과됩니다.
-- 입력 속도가 너무 빠르면 봇으로 판단하여 이메일 인증(`mustReverify`)이 필요할 수 있습니다. SDK는 사람과 유사한 속도로 입력합니다.
-- token_v2는 약 1년간 유효합니다. 만료 시 `login()`을 다시 호출하면 됩니다.
+- 자동 로그인은 Notion의 이메일 인증/봇 판정 정책에 따라 인증 메일이 발송되지 않을 수 있습니다.
+- 쿠키 만료일이 미래여도 Notion 내부 API가 `login_custom_session_expired`를 반환하면 세션은 만료된 것입니다.
+- 수동으로 Notion에 다시 로그인한 뒤 `browser sync-chrome-cookies --validate-internal`을 재실행하세요.
 
 ## 프로필 설정
 
@@ -585,8 +578,21 @@ notion-native deploy docs/spec.md \
 ### 브라우저 자동화
 
 ```bash
-# 브라우저로 로그인 (API 미지원 기능용)
+# 수동 Chrome 로그인 세션을 toolkit browser_state로 동기화
+notion-native browser sync-chrome-cookies \
+  --profile worxphere \
+  --chrome-profile "Profile 1" \
+  --validate-internal
+
+# 자동화 브라우저로 로그인 시도 (Notion이 인증 메일을 발송하지 않을 수 있음)
 notion-native browser login --profile worxphere --headed
+
+# Notion 이메일 인증 코드가 필요하면 Gmail readonly token 파일로 자동 입력
+notion-native browser login \
+  --profile worxphere \
+  --gmail-env-file /path/to/.env \
+  --gmail-token-file /path/to/gmail_token.json \
+  --gmail-user you@worxphere.ai
 
 # 팀스페이스 목록 조회
 notion-native browser list-teamspaces --profile worxphere
@@ -594,6 +600,13 @@ notion-native browser list-teamspaces --profile worxphere
 # 팀스페이스 생성
 notion-native browser create-teamspace --profile worxphere --name "새 팀"
 ```
+
+`--gmail-token-file`은 Gmail API `gmail.readonly` authorized-user JSON입니다.
+`NOTION_GMAIL_TOKEN_FILE`/`GMAIL_TOKEN_FILE`과 `NOTION_GMAIL_USER`/`GMAIL_USER`
+환경변수도 지원합니다.
+`--gmail-env-file`은 `GMAIL_*`/`NOTION_GMAIL_*` 값만 로드합니다.
+`browser sync-chrome-cookies --validate-internal`의 `internal_api_authorized`가
+`false`이면 쿠키는 추출됐지만 Notion 내부 API가 세션을 만료 처리한 상태입니다.
 
 ### 프로필 관리
 
@@ -614,7 +627,10 @@ notion-native profile set-token team-a --value "ntn_xxx" --keychain
 # 유닛 테스트 (mock, API 호출 없음, 빠름)
 pytest tests/ -q -m "not integration"
 
-# Integration 테스트 (실제 Notion API 호출, 쿠키 필요)
+# Integration 테스트 전 Chrome 세션 동기화 및 내부 API 인증 확인
+notion-native browser sync-chrome-cookies --profile worxphere --validate-internal
+
+# Integration 테스트 (실제 Notion 내부 API read 호출, 유효한 token_v2 필요)
 pytest tests/test_internal_integration.py -v
 
 # 전체 테스트
@@ -703,8 +719,10 @@ notion-native-toolkit/
     __init__.py          # NotionToolkit 내보내기
     toolkit.py           # 프로필 기반 통합 진입점
     client.py            # 공식 API 클라이언트 (v1)
-    internal.py          # 내부 API 클라이언트 (v3) + 자동 로그인
+    internal.py          # 내부 API 클라이언트 (v3)
     browser.py           # Playwright 브라우저 자동화
+    browser_state.py     # Playwright storage_state 쿠키 로더
+    chrome_cookies.py    # Chrome 쿠키 → storage_state 동기화
     profiles.py          # 워크스페이스 프로필 관리
     credentials.py       # Keychain/환경변수 자격 증명
     cli.py               # CLI 인터페이스
@@ -744,14 +762,16 @@ Notion 내부 API를 [Model Context Protocol (MCP)](https://modelcontextprotocol
 **1단계: 환경변수 설정**
 
 ```bash
-# 필수 - 워크스페이스 ID
+# 프로필 기반 사용 권장
+export NOTION_PROFILE='worxphere'
+
+# 프로필에 space_id가 없을 때만 필요
 export NOTION_SPACE_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 
 # 아래 중 하나 선택:
 
-# (A) cookies.json 자동 로드 (Playwright 쿠키 동기화 사용 시 - 권장)
-# ~/.chrome-automation-profile/cookies.json 에서 token_v2 자동 추출
-# 별도 설정 불필요
+# (A) 프로필 browser_state_path 자동 로드 (권장)
+notion-native browser sync-chrome-cookies --profile worxphere --validate-internal
 
 # (B) 환경변수 직접 지정
 export NOTION_TOKEN_V2='<token_v2 쿠키값>'
@@ -767,7 +787,7 @@ export NOTION_USER_ID='<user_id 쿠키값>'   # 선택사항
       "command": "uv",
       "args": ["run", "--directory", "/path/to/notion-native-toolkit", "python", "-m", "notion_native_toolkit.mcp_server"],
       "env": {
-        "NOTION_SPACE_ID": "your-space-id-here"
+        "NOTION_PROFILE": "worxphere"
       }
     }
   }
@@ -782,7 +802,7 @@ export NOTION_USER_ID='<user_id 쿠키값>'   # 선택사항
     "notion-internal": {
       "command": "notion-mcp",
       "env": {
-        "NOTION_SPACE_ID": "your-space-id-here"
+        "NOTION_PROFILE": "worxphere"
       }
     }
   }
@@ -792,8 +812,10 @@ export NOTION_USER_ID='<user_id 쿠키값>'   # 선택사항
 ### 인증 우선순위
 
 1. `NOTION_TOKEN_V2` 환경변수 (명시 지정)
-2. `~/.chrome-automation-profile/cookies.json` (Playwright 동기화)
-3. `NOTION_COOKIES_PATH` 환경변수로 쿠키 파일 경로 커스텀 가능
+2. `NOTION_PROFILE` / `NOTION_NATIVE_PROFILE`의 `browser_state_path`
+3. `NOTION_BROWSER_STATE_PATH` (Playwright storage state JSON)
+4. `~/.chrome-automation-profile/cookies.json` (레거시 Playwright 동기화)
+5. `NOTION_COOKIES_PATH` 환경변수로 레거시 쿠키 파일 경로 커스텀 가능
 
 ### 인증 트러블슈팅
 
@@ -803,23 +825,25 @@ export NOTION_USER_ID='<user_id 쿠키값>'   # 선택사항
 | `NOTION_SPACE_ID가 설정되지 않았습니다` | 환경변수 누락 | `export NOTION_SPACE_ID='...'` 설정 |
 | `HTTP 401` / `HTTP 403` | token_v2 만료 (약 1년 유효) | 브라우저에서 Notion 재로그인 후 쿠키 재동기화 |
 | `HTTP 429` | Rate limit | 자동 재시도됨 (최대 3회). 빈번하면 `rate_limit` 값 증가 |
-| `Search failed` / `None` 응답 | space_id 불일치 | 올바른 워크스페이스 ID인지 확인 |
+| `Search failed` / `None` 응답 | space_id 불일치 또는 세션 만료 | `sync-chrome-cookies --validate-internal` 결과 확인 |
 | `Stream HTTP 4xx on runInferenceTranscript` | AI 크레딧 소진 또는 플랜 미지원 | `notion_ai_usage` 도구로 잔여 크레딧 확인 |
 
 **token_v2 획득 방법:**
 
 ```bash
-# 방법 1: 자동 로그인 (권장)
-notion-native login
+# 방법 1: 수동 Chrome 로그인 세션 동기화 (권장)
+notion-native browser sync-chrome-cookies \
+  --profile worxphere \
+  --validate-internal
 
-# 방법 2: Chrome DevTools
+# 방법 2: 자동 로그인 보조 경로
+notion-native browser login --profile worxphere --headed
+
+# 방법 3: Chrome DevTools
 # 1) Chrome에서 notion.so 접속
 # 2) F12 → Application → Cookies → notion.so
 # 3) token_v2 값 복사
 # 4) export NOTION_TOKEN_V2='복사한값'
-
-# 방법 3: Playwright 쿠키 동기화 스크립트 사용
-# cookies.json이 자동 갱신되면 별도 작업 불필요
 ```
 
 **space_id 확인 방법:**

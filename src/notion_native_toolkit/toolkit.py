@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .browser_state import find_storage_state_cookie
 from .browser import NotionBrowserAutomation
 from .client import NotionApiClient
 from .credentials import resolve_credential
@@ -13,7 +14,14 @@ class NotionToolkit:
     def __init__(self, profile: WorkspaceProfile):
         self.profile = profile
         token = resolve_credential(profile.api_token)
-        token_v2 = resolve_credential(profile.token_v2)
+        token_v2 = resolve_credential(profile.token_v2) or find_storage_state_cookie(
+            profile.browser_state_path,
+            "token_v2",
+        )
+        user_id = profile.user_id or find_storage_state_cookie(
+            profile.browser_state_path,
+            "notion_user_id",
+        )
         self.browser = NotionBrowserAutomation(profile)
         self.client: NotionApiClient | None = None
         self.cli = NotionCliClient(token=token)
@@ -26,7 +34,7 @@ class NotionToolkit:
             self.internal = NotionInternalClient(
                 token_v2=token_v2,
                 space_id=profile.space_id,
-                user_id=profile.user_id,
+                user_id=user_id,
             )
 
     @classmethod
@@ -59,6 +67,7 @@ class NotionToolkit:
         if self.internal is None:
             raise ValueError(
                 f"Profile '{self.profile.name}' does not have token_v2 or space_id configured. "
-                "Use 'notion-native profile set-internal <name> --token-v2 <token> --space-id <id>' to set up."
+                "Use 'notion-native profile set-internal <name> --token-v2 <token> --space-id <id>' "
+                "or 'notion-native browser sync-chrome-cookies --profile <name>' to set up."
             )
         return self.internal

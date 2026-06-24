@@ -152,7 +152,21 @@ notion-native profile init
 notion-native profile add my-workspace --workspace-url https://www.notion.so/my-workspace
 notion-native profile set-token my-workspace --value "ntn_xxx" --keychain
 notion-native page create-from-markdown --profile my-workspace --title "제목" --parent-page-id PAGE_ID --file doc.md
+
+# 권장: 사용자가 일반 Chrome에서 Notion에 로그인한 뒤 세션 쿠키를 toolkit state로 동기화
+notion-native browser sync-chrome-cookies \
+  --profile my-workspace \
+  --validate-internal
+
+# 보조: 자동화 브라우저 로그인 시도
 notion-native browser login --profile my-workspace --headed
+
+# Notion 이메일 인증 코드가 필요할 때 Gmail readonly token 파일로 자동 입력
+notion-native browser login \
+  --profile my-workspace \
+  --gmail-env-file /path/to/.env \
+  --gmail-token-file /path/to/gmail_token.json \
+  --gmail-user you@worxphere.ai
 ```
 
 ## 공식 API / ntn 연동
@@ -217,14 +231,21 @@ uv run python -m compileall -q src tests
 
 전체 `pytest tests -q`는 `tests/test_internal_integration.py`가 실제 Notion 내부 API를 읽습니다.
 Chrome `token_v2`가 없거나 만료되면 integration 테스트는 skip되어야 합니다.
+먼저 `notion-native browser sync-chrome-cookies --profile <profile> --validate-internal`을 실행해
+`internal_api_authorized`가 `true`인지 확인하세요.
 실제 Notion 쓰기 기능은 별도 승인된 테스트 페이지/DB에서만 확인하세요.
+브라우저 로그인은 `--gmail-token-file` 또는 `NOTION_GMAIL_TOKEN_FILE`/`GMAIL_TOKEN_FILE`로
+Gmail API `gmail.readonly` authorized-user JSON을 받아 Notion 6자리 인증 코드를 자동 입력할 수 있습니다.
+`--gmail-env-file`은 `GMAIL_*`/`NOTION_GMAIL_*` 값만 로드합니다.
+Notion이 자동화 브라우저에서 인증 메일을 발송하지 않을 수 있으므로, 그 경우 수동 Chrome 로그인 후
+`sync-chrome-cookies`를 사용하세요.
 
 ## 인증 트러블슈팅
 
 | 증상 | 해결 |
 |------|------|
-| token_v2 없음 | `notion-native login` 실행 또는 Chrome DevTools에서 쿠키 복사 |
-| 401/403 | token_v2 만료 → 브라우저 재로그인 후 쿠키 재동기화 |
+| token_v2 없음 | Chrome에서 Notion 수동 로그인 후 `browser sync-chrome-cookies --validate-internal` 실행 |
+| 401/403 | token_v2 만료 → 브라우저 재로그인 후 쿠키 재동기화 및 `internal_api_authorized` 확인 |
 | NOTION_SPACE_ID 없음 | Notion Settings에서 space ID 복사 후 환경변수 설정 |
 
 ## Rules

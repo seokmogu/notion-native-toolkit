@@ -8,7 +8,9 @@ import os
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
+from notion_native_toolkit.browser_state import find_storage_state_cookie
 from notion_native_toolkit.internal import NotionInternalClient
+from notion_native_toolkit.profiles import get_profile
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,9 @@ def _load_client() -> NotionInternalClient:
 
     Auth priority:
       1. NOTION_TOKEN_V2 env var (explicit)
-      2. ~/.chrome-automation-profile/cookies.json (Playwright sync)
+      2. NOTION_PROFILE / NOTION_NATIVE_PROFILE browser_state_path
+      3. NOTION_BROWSER_STATE_PATH
+      4. ~/.chrome-automation-profile/cookies.json (legacy Playwright sync)
 
     Required env vars:
       - NOTION_SPACE_ID: workspace ID (always required)
@@ -35,11 +39,35 @@ def _load_client() -> NotionInternalClient:
     Optional env vars:
       - NOTION_TOKEN_V2: skip cookies.json lookup
       - NOTION_USER_ID: override user from cookies
+      - NOTION_PROFILE / NOTION_NATIVE_PROFILE: toolkit profile name
+      - NOTION_BROWSER_STATE_PATH: Playwright storage_state JSON path
       - NOTION_COOKIES_PATH: custom cookies.json location
     """
     token = os.getenv("NOTION_TOKEN_V2")
     space_id = os.getenv("NOTION_SPACE_ID")
     user_id = os.getenv("NOTION_USER_ID")
+
+    profile_name = os.getenv("NOTION_PROFILE") or os.getenv("NOTION_NATIVE_PROFILE")
+    if not token and profile_name:
+        try:
+            profile = get_profile(profile_name)
+        except ValueError:
+            profile = None
+        if profile is not None:
+            token = find_storage_state_cookie(profile.browser_state_path, "token_v2")
+            user_id = user_id or find_storage_state_cookie(
+                profile.browser_state_path,
+                "notion_user_id",
+            )
+            space_id = space_id or profile.space_id
+
+    browser_state_path = os.getenv("NOTION_BROWSER_STATE_PATH")
+    if not token and browser_state_path:
+        token = find_storage_state_cookie(browser_state_path, "token_v2")
+        user_id = user_id or find_storage_state_cookie(
+            browser_state_path,
+            "notion_user_id",
+        )
 
     if not token and COOKIES_PATH.exists():
         cookies = json.loads(COOKIES_PATH.read_text())
@@ -57,9 +85,9 @@ def _load_client() -> NotionInternalClient:
             "Notion 인증을 찾을 수 없습니다. 다음 중 하나를 확인하세요:",
             "",
             "1) cookies.json 방식 (권장):",
-            f"   쿠키 파일 경로: {COOKIES_PATH}",
-            "   - Playwright로 Notion 로그인 후 쿠키를 저장했는지 확인",
-            "   - notion-native profile init → notion-native login 실행",
+            "   - notion-native browser sync-chrome-cookies --profile <profile> --validate-internal",
+            "   - MCP env에 NOTION_PROFILE=<profile> 설정",
+            f"   - 레거시 쿠키 파일 경로: {COOKIES_PATH}",
             "   - 쿠키에 token_v2 (domain: .notion.so) 항목이 있어야 함",
             "",
             "2) 환경변수 방식:",

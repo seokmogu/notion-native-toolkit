@@ -539,6 +539,11 @@ def test_blocks_and_meeting_notes_use_latest_version() -> None:
         assert client.append_children("block-id", [{"paragraph": {}}]) == {
             "id": "block-id"
         }
+        assert client.append_children(
+            "block-id",
+            [{"paragraph": {}}],
+            after="previous-block-id",
+        ) == {"id": "block-id"}
         assert client.update_block("block-id", {"paragraph": {"rich_text": []}}) == {
             "id": "block-id"
         }
@@ -559,6 +564,18 @@ def test_blocks_and_meeting_notes_use_latest_version() -> None:
             "PATCH",
             "blocks/block-id/children",
             {"children": [{"paragraph": {}}]},
+            NOTION_LATEST_VERSION,
+        ),
+        (
+            "PATCH",
+            "blocks/block-id/children",
+            {
+                "children": [{"paragraph": {}}],
+                "position": {
+                    "type": "after_block",
+                    "after_block": {"id": "previous-block-id"},
+                },
+            },
             NOTION_LATEST_VERSION,
         ),
         (

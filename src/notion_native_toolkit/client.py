@@ -362,7 +362,10 @@ class NotionApiClient:
     ) -> dict[str, Any] | None:
         payload: dict[str, Any] = {"children": children}
         if after is not None:
-            payload["after"] = after
+            payload["position"] = {
+                "type": "after_block",
+                "after_block": {"id": after},
+            }
         return self._call_latest("PATCH", f"blocks/{block_id}/children", payload)
 
     def update_page(

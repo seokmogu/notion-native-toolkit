@@ -63,14 +63,35 @@ class NotionWriter:
         url = url_value if isinstance(url_value, str) else ""
         return CreatedPage(page_id=page_id, url=url, title=title)
 
-    def append_blocks(self, page_id: str, blocks: list[dict[str, Any]]) -> None:
-        for index in range(0, len(blocks), BLOCKS_PER_REQUEST):
-            chunk = blocks[index : index + BLOCKS_PER_REQUEST]
-            response = self.client.append_children(page_id, chunk)
+    def append_blocks(
+        self,
+        page_id: str,
+        blocks: list[dict[str, Any]],
+        *,
+        at_start: bool = False,
+    ) -> None:
+        chunks = [
+            blocks[index : index + BLOCKS_PER_REQUEST]
+            for index in range(0, len(blocks), BLOCKS_PER_REQUEST)
+        ]
+        if at_start:
+            chunks.reverse()
+        position = "start" if at_start else None
+        for chunk in chunks:
+            response = self.client.append_children(
+                page_id,
+                chunk,
+                position=position,
+            )
             if response is not None:
                 continue
-            for block in chunk:
-                single = self.client.append_children(page_id, [block])
+            fallback_blocks = reversed(chunk) if at_start else chunk
+            for block in fallback_blocks:
+                single = self.client.append_children(
+                    page_id,
+                    [block],
+                    position=position,
+                )
                 if single is None:
                     fallback = {
                         "type": "paragraph",
@@ -85,7 +106,11 @@ class NotionWriter:
                             ]
                         },
                     }
-                    self.client.append_children(page_id, [fallback])
+                    self.client.append_children(
+                        page_id,
+                        [fallback],
+                        position=position,
+                    )
 
     def clear_page_content(
         self, page_id: str, preserve_child_pages: bool = True
@@ -110,7 +135,7 @@ class NotionWriter:
         preserve_child_pages: bool = True,
     ) -> None:
         self.clear_page_content(page_id, preserve_child_pages=preserve_child_pages)
-        self.append_blocks(page_id, blocks)
+        self.append_blocks(page_id, blocks, at_start=preserve_child_pages)
 
     def verify_access(self, page_id: str) -> bool:
         return self.client.fetch_page(page_id) is not None

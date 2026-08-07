@@ -9,6 +9,7 @@ from notion_native_toolkit.deploy import (
     DeployReport,
     DeployResult,
     _collect_md_files,
+    _deploy_landing,
     _extract_title,
     deploy_file,
     split_by_h1,
@@ -35,6 +36,38 @@ class FakeCliClient:
             "url": "https://notion.so/existing-page",
             "title": "Guide",
         }
+
+
+class FakeLandingClient:
+    def __init__(self) -> None:
+        self.updated_pages: list[tuple[str, dict]] = []
+
+    def update_page(self, page_id: str, payload: dict) -> dict:
+        self.updated_pages.append((page_id, payload))
+        return {"id": page_id}
+
+    def fetch_page(self, page_id: str) -> dict:
+        return {"id": page_id, "url": "https://notion.so/landing-page"}
+
+    def fetch_children(self, page_id: str):
+        raise AssertionError("landing deployment must not move child pages")
+
+    def call(self, method: str, endpoint: str, data: dict):
+        raise AssertionError("landing deployment must not restore archived child pages")
+
+
+class FakeLandingWriter:
+    def __init__(self) -> None:
+        self.client = FakeLandingClient()
+        self.replacements: list[tuple[str, list[dict], bool]] = []
+
+    def replace_page_content(
+        self,
+        page_id: str,
+        blocks: list[dict],
+        preserve_child_pages: bool = True,
+    ) -> None:
+        self.replacements.append((page_id, blocks, preserve_child_pages))
 
 
 class TestExtractTitle:
@@ -206,6 +239,29 @@ class TestDeployFileCliBackend:
 
         assert result.pending_links
         assert result.pending_links[0]["target"] == "missing.md"
+
+
+def test_deploy_landing_preserves_child_pages_without_archiving_them(tmp_path) -> None:
+    readme = tmp_path / "README.md"
+    readme.write_text("# Landing\n\nCurrent body.\n", encoding="utf-8")
+    writer = FakeLandingWriter()
+    mapping = PageMapping()
+
+    result = _deploy_landing(
+        file_path=readme,
+        project_root=tmp_path,
+        writer=writer,  # type: ignore[arg-type]
+        parent_page_id="landing-page",
+        mapping=mapping,
+        force=True,
+    )
+
+    assert result.action == "landing"
+    assert len(writer.replacements) == 1
+    page_id, blocks, preserve_child_pages = writer.replacements[0]
+    assert page_id == "landing-page"
+    assert blocks
+    assert preserve_child_pages is True
 
 
 class TestSplitByH1:

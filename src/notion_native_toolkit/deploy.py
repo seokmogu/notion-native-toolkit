@@ -404,20 +404,8 @@ def _deploy_landing(
         },
     )
 
-    # Collect existing child page IDs before clearing
-    existing_children = writer.client.fetch_children(parent_page_id) or []
-    child_page_ids = [
-        block["id"]
-        for block in existing_children
-        if block.get("type") == "child_page" and isinstance(block.get("id"), str)
-    ]
-
-    # Clear ALL content including child_page blocks (they go to trash)
-    writer.replace_page_content(parent_page_id, blocks, preserve_child_pages=False)
-
-    # Restore child pages from trash → they reappear at the bottom
-    for cpid in child_page_ids:
-        writer.client.call("PATCH", f"pages/{cpid}", {"archived": False})
+    # Preserve child pages and prepend the refreshed body before them.
+    writer.replace_page_content(parent_page_id, blocks, preserve_child_pages=True)
 
     # Fetch the page URL
     page = writer.client.fetch_page(parent_page_id)

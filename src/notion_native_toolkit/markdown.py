@@ -21,8 +21,7 @@ from mistletoe.block_token import (
 from mistletoe.span_token import Emphasis, InlineCode, LineBreak, Link, RawText, Strong
 
 
-BLOCKS_NEEDING_SPACING = {"heading_1", "heading_2", "callout", "code"}
-
+EMPTY_BLOCK_MARKER = "<empty-block/>"
 NOTION_MAX_TEXT_LENGTH = 2000
 
 # Language-specific comment prefixes for code block chunking (FR-02)
@@ -250,6 +249,15 @@ def extract_text_content(token: Any) -> str:
             return ""
         return "".join(extract_text_content(child) for child in children)
     return ""
+
+
+def _is_explicit_empty_block(token: Paragraph) -> bool:
+    children = token.children or []
+    return (
+        len(children) == 1
+        and isinstance(children[0], RawText)
+        and children[0].content.strip() == EMPTY_BLOCK_MARKER
+    )
 
 
 def convert_inline_text(
@@ -596,10 +604,15 @@ def markdown_to_notion_blocks(
                     callout_block["callout"]["children"] = child_blocks
                 block = callout_block
             elif first_paragraph_text:
+                quote_payload: dict[str, Any] = {
+                    "rich_text": first_paragraph_text,
+                }
+                if child_blocks:
+                    quote_payload["children"] = child_blocks
                 block = {
                     "object": "block",
                     "type": "quote",
-                    "quote": {"rich_text": first_paragraph_text},
+                    "quote": quote_payload,
                 }
         elif isinstance(token, List):
             list_blocks = _convert_list_items(
@@ -676,8 +689,14 @@ def markdown_to_notion_blocks(
         elif isinstance(token, ThematicBreak):
             block = {"object": "block", "type": "divider", "divider": {}}
         elif isinstance(token, Paragraph):
+            if _is_explicit_empty_block(token):
+                block = {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": []},
+                }
             # FR-01 P1: Detect image-only paragraphs: ![alt](url)
-            if (
+            elif (
                 len(token.children) == 1
                 and hasattr(token.children[0], "src")
                 and hasattr(token.children[0], "title")
@@ -705,17 +724,6 @@ def markdown_to_notion_blocks(
                     }
         if block is not None:
             blocks.append(block)
-            block_type = block.get("type")
-            if isinstance(block_type, str) and block_type in BLOCKS_NEEDING_SPACING:
-                blocks.append(
-                    {
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {
-                            "rich_text": [{"type": "text", "text": {"content": ""}}]
-                        },
-                    }
-                )
     return blocks, pending_links
 
 
@@ -833,7 +841,8 @@ def block_to_markdown(block: dict[str, Any], indent: int = 0) -> str:
     if block_type == "paragraph":
         payload = block.get("paragraph", {})
         if isinstance(payload, dict):
-            return f"{prefix}{rich_text_to_markdown(payload.get('rich_text', []))}".rstrip()
+            text = rich_text_to_markdown(payload.get("rich_text", []))
+            return f"{prefix}{text}".rstrip() if text else f"{prefix}{EMPTY_BLOCK_MARKER}"
     if block_type == "heading_1":
         payload = block.get("heading_1", {})
         if isinstance(payload, dict):
@@ -896,7 +905,18 @@ def block_to_markdown(block: dict[str, Any], indent: int = 0) -> str:
         payload = block.get("quote", {})
         if isinstance(payload, dict):
             text = rich_text_to_markdown(payload.get("rich_text", []))
-            return _indent(text, f"{prefix}> ")
+            lines = [_indent(text, f"{prefix}> ")]
+            children = payload.get("children", [])
+            if isinstance(children, list):
+                for child in children:
+                    if not isinstance(child, dict):
+                        continue
+                    child_text = block_to_markdown(child, indent)
+                    if child_text:
+                        lines.extend(
+                            [f"{prefix}>", _indent(child_text, f"{prefix}> ")]
+                        )
+            return "\n".join(lines)
     if block_type == "callout":
         payload = block.get("callout", {})
         if isinstance(payload, dict):

@@ -1,54 +1,43 @@
 # Notion Toolkit Guidelines
 
-This document centralizes the rules and patterns that were previously scattered across multiple projects in `/Users/seokmogu/project`.
+The workspace-wide source of truth is `/Users/seokmogu/project/NOTION_PUBLISHING.md`. This document defines how `notion-native-toolkit` supports that policy.
 
-## Scope
+## Role
 
-- Reuse this toolkit from new projects instead of creating one-off Notion scripts.
-- Keep project-specific business workflows in the consuming project.
-- Keep Notion API, browser automation, profile management, and Markdown conversion in this repo.
+This toolkit is an adapter over official Notion surfaces, not the default interactive integration.
 
-## Workspace Model
+- Use hosted Notion MCP for interactive search, fetch, page/database updates, comments, and recent-page discovery.
+- Use official enhanced Markdown endpoints through `notion-native` for deterministic create/read/update, batch, and headless workflows.
+- Use toolkit-specific logic only for hierarchy, stable mappings, child-page preservation, files, profiles, dry-run/diff/rollback evidence, or a named official-surface gap.
+- Keep internal API and browser automation opt-in. Document the missing official capability before selecting either.
 
-- Treat each Notion workspace as a separate profile with its own token and browser session state.
-- Prefer a single workspace for one organization when relations, rollups, and linked database views must work together.
-- Use multiple profiles when separate workspaces are unavoidable.
+## Markdown
 
-## Credentials
+- Prefer native enhanced Markdown round-trips.
+- Strip a leading H1 that matches the Notion page title.
+- Do not inject empty paragraphs after headings, callouts, code, tables, or lists.
+- Treat `<empty-block/>` as an explicit source instruction, never an automatic spacing rule.
+- Use `<br>` only for intentional hard breaks inside one paragraph.
+- Preserve child pages and databases by default.
 
-- Never commit tokens, passwords, cookies, or session files.
-- Prefer macOS Keychain-backed profile credentials.
-- Use environment variable references only when project deployment requires them.
-- Rotate compromised credentials immediately.
+The custom block converter is a compatibility fallback. A caller that selects it must test the exact unsupported feature and verify the resulting block sequence.
 
-## API First, Browser Second
+## Profiles and Credentials
 
-- Use the Notion API for pages, blocks, databases, file uploads, comments, and users.
-- Prefer the native Markdown endpoints for create, read, and replace when possible.
-- Use browser automation only for unsupported UI workflows such as teamspace creation, linked view setup, or editor-only actions.
+- Keep each workspace in a separate profile.
+- Prefer Keychain or environment-variable references for official API credentials.
+- Never store tokens, cookies, passwords, or session state in `.mcp.json`, project config, scripts, skills, or documentation.
+- Hosted MCP authentication belongs to the MCP client's OAuth flow.
 
-## Markdown Rules
+## Safety and Evidence
 
-- Default to native Markdown endpoints for round-trip workflows.
-- Use the block conversion fallback for custom control or older endpoints.
-- Preserve standard Markdown compatibility as the source format.
-- Expect special handling for Notion-specific callouts, tables, page mentions, and list nesting limits.
+Read-only exports and inspections may run directly. Writes require the workspace sequence: fresh export, local diff/dry-run, exact target/scope approval, apply, fresh export verification.
 
-## Sync Rules
+Preserve stable page IDs and mapping files. Do not delete or recreate pages to simplify deployment. Store durable rollback and verification evidence in the consuming project's dated evidence/operations area.
 
-- Preserve stable page ids when a consuming project needs durable mappings.
-- Do not delete page mapping files or pages unless a workflow explicitly requires archival or trash behavior.
-- Prefer update-in-place workflows over recreate-and-delete for stable URLs.
+## Reuse
 
-## Safety Rules
-
-- Do not log PII or sensitive document contents.
-- Keep rate limiting and retry behavior enabled for API calls.
-- Preserve child pages during content replacement unless the caller explicitly opts out.
-
-## Reuse Rules for New Projects
-
-- Install with `pip install -e /Users/seokmogu/project/notion-native-toolkit`.
-- Configure a profile instead of adding project-local Notion credentials logic.
-- Call the CLI directly for simple automation.
-- Import the Python package for richer application integration.
+- Call `notion-native` for simple automation.
+- Import the Python package for a real application integration.
+- Keep project business logic in the consuming project.
+- Do not create another project-local Markdown uploader or Notion client wrapper.

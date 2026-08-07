@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -359,13 +359,18 @@ class NotionApiClient:
         block_id: str,
         children: list[dict[str, Any]],
         after: str | None = None,
+        position: Literal["start", "end"] | None = None,
     ) -> dict[str, Any] | None:
+        if after is not None and position is not None:
+            raise ValueError("Pass either after or position, not both")
         payload: dict[str, Any] = {"children": children}
         if after is not None:
             payload["position"] = {
                 "type": "after_block",
                 "after_block": {"id": after},
             }
+        elif position is not None:
+            payload["position"] = {"type": position}
         return self._call_latest("PATCH", f"blocks/{block_id}/children", payload)
 
     def update_page(

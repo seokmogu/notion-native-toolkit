@@ -2,9 +2,15 @@
 
 Notion 공식 API와 내부 API를 하나의 Python SDK로 통합한 툴킷입니다.
 
+## 공식 우선 운영 원칙
+
+워크스페이스 기준은 `/Users/seokmogu/project/NOTION_PUBLISHING.md`입니다. 대화형 검색·조회·부분 수정은 Hosted Notion MCP를 우선하고, 이 툴킷은 공식 enhanced Markdown/API 기반 batch·headless 작업과 hierarchy, mapping, child-page 보존, file upload, profile, 증적 기능을 보완합니다. 내부 API와 browser automation은 공식 표면에 없는 기능이 확인된 경우에만 사용합니다.
+
+새로운 one-off Notion uploader를 만들거나 custom block writer를 기본 경로로 사용하지 않습니다. leaf page는 native Markdown을 우선하고, page title과 동일한 첫 H1 및 heading 직후 자동 empty paragraph를 생성하지 않습니다.
+
 ## 이 프로젝트가 필요한 이유
 
-Notion의 공식 API(v1)는 페이지, 블록, 데이터베이스 등 기본 CRUD만 제공합니다. 하지만 실제 업무 자동화에 필요한 기능들 - AI 실행, 풀텍스트 검색, 게스트 초대, 워크스페이스 관리 등은 공식 API에 없습니다.
+Notion의 공식 표면은 Hosted MCP, enhanced Markdown, 페이지·블록·데이터베이스 API를 제공합니다. 하지만 실제 업무 자동화에 필요한 일부 기능들—AI 실행, 고급 풀텍스트 검색, 게스트 초대, 워크스페이스 관리 등—은 공식 표면만으로 처리되지 않습니다.
 
 이 툴킷은 Notion의 **내부 API(v3)**를 분석하여 SDK로 제공합니다. 90+ 내부 엔드포인트를 캡처/검증했으며, integration test로 API 변경을 감지합니다.
 
@@ -897,10 +903,12 @@ MCP 서버 외에, Claude Code에서 슬래시 커맨드로 직접 호출할 수
 
 | 상황 | 추천 |
 |------|------|
-| Claude Code에서 빠르게 호출 | `/notion-native-toolkit` 스킬 |
-| Cursor, Windsurf 등 다른 도구 사용 | MCP 서버 |
-| 에이전트가 자동으로 Notion 도구 호출 | MCP 서버 (tool discovery) |
-| space_id 고정 + 반복 작업 | MCP 서버 (env에 설정해두면 편함) |
+| 대화형 Notion 검색·fetch·부분 수정 | Hosted Notion MCP (`https://mcp.notion.com/mcp`) |
+| Markdown batch/headless create·update | `notion-native` official Markdown/native mode |
+| hierarchy·mapping·child/file 보완 | `/notion-native-toolkit` 또는 Python package |
+| Notion AI/usage 등 공식 표면에 없는 명시 기능 | opt-in `notion-internal` MCP |
+
+이 저장소의 `notion-internal` MCP는 Hosted Notion MCP의 대체재가 아닙니다. 전역 또는 일반 프로젝트 설정에 기본 등록하지 않습니다.
 
 ## 참고 사항
 

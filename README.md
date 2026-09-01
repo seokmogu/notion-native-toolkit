@@ -273,7 +273,7 @@ model_code = next(
 for chunk in client.run_ai(
     "이 페이지를 요약해줘",
     model=model_code,              # get_available_models()의 model 코드
-    reasoning_effort="high",     # none, low, medium, high, xhigh, max
+    reasoning_effort="high",     # none, minimal, low, medium, high, xhigh, max
 ):
     print(chunk)
 ```

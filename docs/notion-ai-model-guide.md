@@ -12,11 +12,39 @@
 - 사용자가 모델을 직접 선택한 경우 `config.value.modelFromUser`를 `true`로
   설정한다.
 - 추론 레벨은 `config.value.reasoningEffort`에 소문자 값으로 전달한다.
-- 지원 레벨은 `none`, `low`, `medium`, `high`, `xhigh`, `max`다.
+- 지원 레벨은 `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`다.
 - 자동 라우팅을 사용할 때는 `model`과 `reasoningEffort`를 생략한다.
 - 모델별로 허용되는 추론 레벨 조합은 변경될 수 있으므로, 오류가 발생하면
   자동 라우팅 또는 해당 모델의 기본 레벨로 재시도하지 말고 현재 모델 목록과
   UI 선택 상태를 먼저 확인한다.
+
+## 기본 라우팅 원칙
+
+정말 짧고 즉답 가능한 경우만 Codex가 직접 답한다. 인사, 단순 확인,
+한 문장짜리 사실 답변, 짧은 번역·형식 변환처럼 별도 맥락이나 추론이
+필요하지 않은 경우가 예외다. 분석, 작성, 요약, 비교, 판단, 계획, 코드
+설명처럼 한 문장을 넘거나 맥락을 사용하는 요청은 반드시 Notion AI를
+거쳐서 답한다.
+
+라우팅 순서는 다음과 같다.
+
+1. 현재 모델 목록을 조회하고 비활성 모델을 제외한다.
+2. 요청의 시간·비용 민감도와 복잡도를 정한다.
+3. `modelCardAttributes`의 `speed`, `intelligence`, `cost` 점수(각 1–5)와
+   `displayGroup`을 사용해 후보를 고른다.
+4. 후보의 `modelConfiguration.supportedReasoningEfforts` 안에서 추론 레벨을
+   고르고, 없으면 `defaultReasoningEffort`를 사용한다.
+5. 선택한 표시명·내부 코드·추론 레벨을 기록하고 Notion AI를 호출한다.
+
+초기 선택 기준은 다음과 같다.
+
+- 짧고 빠른 작업: `displayGroup=fast`, 높은 `speed`, 낮은 `cost`,
+  `low` 또는 `medium`.
+- 복잡한 분석·긴 작성: `displayGroup=intelligent`, 높은 `intelligence`,
+  `high`·`xhigh`·`max` 중 지원되는 레벨.
+- 사용자가 모델이나 레벨을 지정하면 사용자 선택이 항상 우선한다.
+- 모델 계열명만으로 “한국어에 강함”, “코딩에 강함” 같은 특성을 단정하지
+  않는다. 그런 라우팅은 별도 비민감 벤치마크 결과가 쌓인 뒤 추가한다.
 
 ## 현재 조회된 모델
 

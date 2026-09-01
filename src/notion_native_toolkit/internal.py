@@ -20,7 +20,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 INTERNAL_BASE_URL = "https://www.notion.so/api/v3/"
-REASONING_EFFORTS = ("none", "low", "medium", "high", "xhigh", "max")
+REASONING_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
 
 class NotionInternalClient:
@@ -265,8 +265,8 @@ class NotionInternalClient:
             thread_id: Existing thread ID to continue, or None for new.
             agent_name: Display name for the AI agent.
             model: Internal model code from ``get_available_models()``.
-            reasoning_effort: One of ``none``, ``low``, ``medium``, ``high``,
-                ``xhigh``, or ``max``.
+            reasoning_effort: One of ``none``, ``minimal``, ``low``, ``medium``,
+                ``high``, ``xhigh``, or ``max``.
 
         Yields:
             Parsed ndjson objects from the streaming response.

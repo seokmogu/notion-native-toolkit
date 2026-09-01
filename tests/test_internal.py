@@ -166,7 +166,7 @@ class TestAI:
         assert config["modelFromUser"] is True
         assert config["reasoningEffort"] == "high"
 
-    @pytest.mark.parametrize("reasoning_effort", ["minimal", "HIGH", "invalid"])
+    @pytest.mark.parametrize("reasoning_effort", ["HIGH", "invalid"])
     def test_run_ai_rejects_unknown_reasoning_effort(
         self,
         client: NotionInternalClient,

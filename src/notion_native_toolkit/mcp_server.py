@@ -133,12 +133,30 @@ def notion_ai_models() -> str:
     models = result["models"]
     lines = []
     for m in models:
+        if not isinstance(m, dict):
+            lines.append(f"- {m}")
+            continue
         name = m.get("modelMessage", m.get("model", "?"))
         family = m.get("modelFamily", "?")
+        provider = m.get("modelProvider", family)
         group = m.get("displayGroup", "?")
         code = m.get("model", "?")
+        card = m.get("modelCardAttributes") or {}
+        configuration = m.get("modelConfiguration") or {}
+        supported_efforts = configuration.get("supportedReasoningEfforts") or []
+        supported = ",".join(str(effort) for effort in supported_efforts)
+        characteristics = (
+            f"speed={card.get('speed', '?')} "
+            f"intelligence={card.get('intelligence', '?')} "
+            f"cost={card.get('cost', '?')}"
+        )
+        effort = configuration.get("defaultReasoningEffort", "?")
         disabled = " (disabled)" if m.get("isDisabled") else ""
-        lines.append(f"- {name} [{family}] group={group} code={code}{disabled}")
+        lines.append(
+            f"- {name} [{family}/{provider}] group={group} code={code} "
+            f"{characteristics} default_effort={effort} "
+            f"supported_efforts={supported or '?'}{disabled}"
+        )
     return "\n".join(lines)
 
 
@@ -170,7 +188,7 @@ def notion_ai_ask(
         block_id: Optional page/block ID for context.
         thread_id: Optional thread ID to continue a conversation.
         model: Internal model code from ``notion_ai_models``. Omit for automatic routing.
-        reasoning_effort: ``none``, ``low``, ``medium``, ``high``, ``xhigh``, or ``max``.
+        reasoning_effort: ``none``, ``minimal``, ``low``, ``medium``, ``high``, ``xhigh``, or ``max``.
     """
     with _load_client() as client:
         chunks = list(

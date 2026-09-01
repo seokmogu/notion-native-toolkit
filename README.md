@@ -263,6 +263,19 @@ prompts = client.get_user_prompts()
 for chunk in client.run_ai("이 페이지를 요약해줘", block_id="page-id"):
     print(chunk)
     # 각 chunk는 AI 응답의 일부 (토큰 단위)
+
+# 모델과 추론 레벨을 직접 선택
+model_code = next(
+    model["model"]
+    for model in models["models"]
+    if model.get("modelMessage") == "GPT-5.6 Sol"
+)
+for chunk in client.run_ai(
+    "이 페이지를 요약해줘",
+    model=model_code,              # get_available_models()의 model 코드
+    reasoning_effort="high",     # none, low, medium, high, xhigh, max
+):
+    print(chunk)
 ```
 
 #### 콘텐츠
@@ -706,12 +719,17 @@ Integration 테스트는 **API 변경 감지기** 역할을 합니다. Notion이
 
 | 메서드 | 설명 |
 |--------|------|
-| `run_ai(prompt, block_id)` | AI 실행 (ndjson 스트리밍) |
+| `run_ai(prompt, block_id, model, reasoning_effort)` | AI 실행 (ndjson 스트리밍), 모델·추론 레벨 선택 가능 |
 | `get_available_models()` | 사용 가능한 AI 모델 |
 | `get_ai_usage()` | AI 크레딧 사용량/한도 |
 | `get_custom_agents()` | 커스텀 AI 에이전트 |
 | `get_ai_connectors()` | AI 커넥터 (Slack, Calendar 등) |
 | `get_user_prompts()` | 저장된 프롬프트 |
+
+현재 조회된 모델 코드와 선택 지침은
+[`docs/notion-ai-model-guide.md`](docs/notion-ai-model-guide.md)에 정리되어
+있습니다. 모델 목록은 동적으로 바뀔 수 있으므로 실제 호출 전에는
+`get_available_models()`를 다시 조회하세요.
 
 ### 콘텐츠
 
@@ -894,6 +912,13 @@ MCP 서버 외에, Claude Code에서 슬래시 커맨드로 직접 호출할 수
 ```
 # Notion AI에 질문
 /notion-native-toolkit <space_id> 한국의 수도는?
+
+# MCP에서 모델·추론 레벨 지정
+notion_ai_ask(
+    prompt="복잡한 정책을 분석해줘",
+    model="<get_available_models()의 model 코드>",
+    reasoning_effort="high",
+)
 
 # "Gemini 모델로 요약해줘" 같은 자연어도 가능 — Claude가 키워드 트리거로 자동 호출
 "notion ai로 이 문서 요약해줘"

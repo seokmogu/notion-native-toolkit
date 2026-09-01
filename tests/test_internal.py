@@ -151,6 +151,30 @@ class TestAI:
         assert payload["transcript"][2]["type"] == "user"
         assert payload["transcript"][2]["value"] == [["Hello"]]
 
+    def test_run_ai_accepts_model_and_reasoning_effort(self, client: NotionInternalClient) -> None:
+        with patch.object(client, "_post_stream", return_value=iter([{"type": "done"}])) as mock:
+            list(
+                client.run_ai(
+                    "Hello",
+                    model="orange-mousse",
+                    reasoning_effort="high",
+                )
+            )
+
+        config = mock.call_args[0][1]["transcript"][0]["value"]
+        assert config["model"] == "orange-mousse"
+        assert config["modelFromUser"] is True
+        assert config["reasoningEffort"] == "high"
+
+    @pytest.mark.parametrize("reasoning_effort", ["minimal", "HIGH", "invalid"])
+    def test_run_ai_rejects_unknown_reasoning_effort(
+        self,
+        client: NotionInternalClient,
+        reasoning_effort: str,
+    ) -> None:
+        with pytest.raises(ValueError, match="Unsupported reasoning_effort"):
+            list(client.run_ai("Hello", reasoning_effort=reasoning_effort))
+
 
 class TestContent:
     def test_load_page_chunk(self, client: NotionInternalClient) -> None:

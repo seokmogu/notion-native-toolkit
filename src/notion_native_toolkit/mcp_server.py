@@ -156,16 +156,32 @@ def notion_ai_usage() -> str:
 
 
 @mcp.tool()
-def notion_ai_ask(prompt: str, block_id: str | None = None, thread_id: str | None = None) -> str:
+def notion_ai_ask(
+    prompt: str,
+    block_id: str | None = None,
+    thread_id: str | None = None,
+    model: str | None = None,
+    reasoning_effort: str | None = None,
+) -> str:
     """Run Notion AI with a prompt and return the streamed response.
 
     Args:
         prompt: The question or instruction for Notion AI.
         block_id: Optional page/block ID for context.
         thread_id: Optional thread ID to continue a conversation.
+        model: Internal model code from ``notion_ai_models``. Omit for automatic routing.
+        reasoning_effort: ``none``, ``low``, ``medium``, ``high``, ``xhigh``, or ``max``.
     """
     with _load_client() as client:
-        chunks = list(client.run_ai(prompt, block_id=block_id, thread_id=thread_id))
+        chunks = list(
+            client.run_ai(
+                prompt,
+                block_id=block_id,
+                thread_id=thread_id,
+                model=model,
+                reasoning_effort=reasoning_effort,
+            )
+        )
 
     # Extract text from streaming patches
     text_parts: list[str] = []

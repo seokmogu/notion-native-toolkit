@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from notion_native_toolkit.client import (
     NOTION_LATEST_VERSION,
     NOTION_VERSION,
+    IncompletePageMarkdownError,
     NotionApiClient,
+    PageMarkdownResult,
 )
 
 
@@ -46,7 +50,7 @@ def test_call_can_override_notion_version(monkeypatch) -> None:
 
     class FakeResponse:
         status_code = 200
-        headers = {}
+        headers: ClassVar[dict[str, str]] = {}
 
         @staticmethod
         def json():
@@ -67,7 +71,9 @@ def test_call_can_override_notion_version(monkeypatch) -> None:
     assert calls == [("GET", "pages/page-id", None, {"Notion-Version": "2026-03-11"})]
 
 
-def test_page_and_database_crud_use_latest_version_but_database_query_stays_legacy() -> None:
+def test_page_and_database_crud_use_latest_version_but_database_query_stays_legacy() -> (
+    None
+):
     client = NotionApiClient(token="secret")
     calls: list[tuple[str, str, dict | None, str | None]] = []
 
@@ -766,6 +772,146 @@ def test_modern_page_markdown_endpoints_use_latest_version() -> None:
             },
             NOTION_LATEST_VERSION,
         ),
+    ]
+
+
+def test_retrieve_markdown_result_preserves_completeness_metadata_and_legacy_api() -> (
+    None
+):
+    client = NotionApiClient(token="secret")
+    calls: list[tuple[str, str, dict | None, str | None]] = []
+
+    def fake_call(method, endpoint, data=None, notion_version=None):
+        calls.append((method, endpoint, data, notion_version))
+        return {
+            "markdown": "# Partial",
+            "truncated": True,
+            "unknown_block_ids": ["block-1", "block-2"],
+        }
+
+    try:
+        client.call = fake_call  # type: ignore[method-assign]
+        result = client.retrieve_markdown_result("page-id")
+        assert result == PageMarkdownResult(
+            markdown="# Partial",
+            truncated=True,
+            unknown_block_ids=("block-1", "block-2"),
+        )
+        assert result.is_complete is False
+        assert client.retrieve_markdown("page-id") == "# Partial"
+    finally:
+        client.session.close()
+
+    assert calls == [
+        ("GET", "pages/page-id/markdown", None, NOTION_LATEST_VERSION),
+        ("GET", "pages/page-id/markdown", None, NOTION_LATEST_VERSION),
+    ]
+
+
+def test_retrieve_markdown_result_requires_explicit_complete_metadata() -> None:
+    client = NotionApiClient(token="secret")
+    payloads = [
+        None,
+        {
+            "markdown": 123,
+            "truncated": False,
+            "unknown_block_ids": [],
+        },
+        {
+            "markdown": "# Truncated",
+            "truncated": True,
+            "unknown_block_ids": [],
+        },
+        {
+            "markdown": "# Unknown",
+            "truncated": False,
+            "unknown_block_ids": ["block-1"],
+        },
+        {"markdown": "# Legacy response"},
+    ]
+
+    try:
+        for payload in payloads:
+            client.call = (  # type: ignore[method-assign]
+                lambda method, endpoint, data=None, notion_version=None, payload=payload: (
+                    payload
+                )
+            )
+            try:
+                client.retrieve_markdown_result("page-id", require_complete=True)
+            except IncompletePageMarkdownError:
+                pass
+            else:
+                raise AssertionError("partial Markdown was accepted as complete")
+
+        complete_payload = {
+            "markdown": "# Complete",
+            "truncated": False,
+            "unknown_block_ids": [],
+        }
+        client.call = (  # type: ignore[method-assign]
+            lambda method, endpoint, data=None, notion_version=None: complete_payload
+        )
+        assert client.retrieve_markdown_result(
+            "page-id", require_complete=True
+        ) == PageMarkdownResult(
+            markdown="# Complete",
+            truncated=False,
+            unknown_block_ids=(),
+        )
+    finally:
+        client.session.close()
+
+
+def test_failed_or_invalid_markdown_remains_none_for_non_strict_and_legacy_api() -> (
+    None
+):
+    client = NotionApiClient(token="secret")
+
+    try:
+        for payload in (
+            None,
+            {
+                "markdown": 123,
+                "truncated": False,
+                "unknown_block_ids": [],
+            },
+        ):
+            client.call = (  # type: ignore[method-assign]
+                lambda method, endpoint, data=None, notion_version=None, payload=payload: (
+                    payload
+                )
+            )
+            assert client.retrieve_markdown_result("page-id") is None
+            assert client.retrieve_markdown("page-id") is None
+    finally:
+        client.session.close()
+
+
+def test_restore_page_sends_only_in_trash_false_using_latest_version() -> None:
+    client = NotionApiClient(token="secret")
+    calls: list[tuple[str, str, dict | None, str | None]] = []
+
+    def fake_call(method, endpoint, data=None, notion_version=None):
+        calls.append((method, endpoint, data, notion_version))
+        return {"id": "page-id", "in_trash": False}
+
+    try:
+        client.call = fake_call  # type: ignore[method-assign]
+        assert client.restore_page("page-id") == {
+            "id": "page-id",
+            "in_trash": False,
+        }
+    finally:
+        client.session.close()
+
+    assert calls == [
+        (
+            "PATCH",
+            "pages/page-id",
+            {"in_trash": False},
+            NOTION_LATEST_VERSION,
+        )
     ]
 
 

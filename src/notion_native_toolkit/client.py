@@ -2,13 +2,36 @@ from __future__ import annotations
 
 import os
 import time
+from dataclasses import dataclass
 from typing import Any, Literal
 
 import httpx
 
-
 NOTION_VERSION = "2022-06-28"
 NOTION_LATEST_VERSION = "2026-03-11"
+
+
+class IncompletePageMarkdownError(RuntimeError):
+    """Raised when required Markdown is unavailable, invalid, or incomplete."""
+
+
+@dataclass(frozen=True, slots=True)
+class PageMarkdownResult:
+    """Notion Markdown plus the API's completeness metadata.
+
+    ``None`` means the corresponding completeness field was absent or malformed,
+    so callers must not treat the response as a complete page snapshot.
+    """
+
+    markdown: str
+    truncated: bool | None
+    unknown_block_ids: tuple[str, ...] | None
+
+    @property
+    def is_complete(self) -> bool:
+        """Return true only for an explicit, untruncated, fully known response."""
+
+        return self.truncated is False and self.unknown_block_ids == ()
 
 
 class NotionApiClient:
@@ -378,6 +401,11 @@ class NotionApiClient:
     ) -> dict[str, Any] | None:
         return self._call_latest("PATCH", f"pages/{page_id}", payload)
 
+    def restore_page(self, page_id: str) -> dict[str, Any] | None:
+        """Restore a trashed page without mutating its title, parent, or body."""
+
+        return self.update_page(page_id, {"in_trash": False})
+
     def move_page(
         self,
         page_id: str,
@@ -398,14 +426,66 @@ class NotionApiClient:
             }
         return self._call_latest("POST", f"pages/{page_id}/move", {"parent": parent})
 
-    def retrieve_markdown(self, page_id: str) -> str | None:
+    def retrieve_markdown_result(
+        self,
+        page_id: str,
+        *,
+        require_complete: bool = False,
+    ) -> PageMarkdownResult | None:
+        """Retrieve Markdown while preserving truncation and unknown-block data.
+
+        The latest Notion API declares both completeness fields, but this method
+        represents absent or malformed fields as ``None`` for compatibility with
+        older responses. When ``require_complete`` is true, anything other than
+        an explicit ``truncated=false`` and an empty ``unknown_block_ids`` list
+        raises instead of allowing a partial snapshot to pass as complete.
+        """
+
         payload = self._call_latest("GET", f"pages/{page_id}/markdown")
         if payload is None:
+            if require_complete:
+                raise IncompletePageMarkdownError(
+                    f"Notion Markdown response is unavailable for {page_id}"
+                )
             return None
         markdown = payload.get("markdown")
-        if isinstance(markdown, str):
-            return markdown
-        return None
+        if not isinstance(markdown, str):
+            if require_complete:
+                raise IncompletePageMarkdownError(
+                    f"Notion Markdown response has no valid Markdown for {page_id}"
+                )
+            return None
+
+        truncated_value = payload.get("truncated")
+        truncated = truncated_value if isinstance(truncated_value, bool) else None
+        unknown_value = payload.get("unknown_block_ids")
+        unknown_block_ids = (
+            tuple(unknown_value)
+            if isinstance(unknown_value, list)
+            and all(isinstance(block_id, str) for block_id in unknown_value)
+            else None
+        )
+        result = PageMarkdownResult(
+            markdown=markdown,
+            truncated=truncated,
+            unknown_block_ids=unknown_block_ids,
+        )
+        if require_complete and not result.is_complete:
+            unknown_count = (
+                len(unknown_block_ids) if unknown_block_ids is not None else "unknown"
+            )
+            raise IncompletePageMarkdownError(
+                "Notion Markdown response is incomplete for "
+                f"{page_id}: truncated={truncated!r}, "
+                f"unknown_block_count={unknown_count}"
+            )
+        return result
+
+    def retrieve_markdown(self, page_id: str) -> str | None:
+        """Retrieve Markdown using the backward-compatible string-only API."""
+
+        result = self.retrieve_markdown_result(page_id)
+        return result.markdown if result is not None else None
 
     def replace_markdown(self, page_id: str, markdown: str) -> dict[str, Any] | None:
         payload = {

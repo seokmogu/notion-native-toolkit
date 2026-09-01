@@ -237,6 +237,21 @@ The request body contains a `transcript` array with typed entries:
 }
 ```
 
+The current AI UI also places the selected inference configuration in this
+same `config.value` object:
+
+```json
+{
+  "model": "<model code from getAvailableModels>",
+  "reasoningEffort": "none | low | medium | high | xhigh | max",
+  "modelFromUser": true
+}
+```
+
+The display name and internal model code are separate values. Callers should
+use the `model` code returned by `getAvailableModels`, not a hard-coded display
+label. `modelFromUser` is set when the user explicitly selects a model.
+
 **context** — User and workspace context:
 ```json
 {

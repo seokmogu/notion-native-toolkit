@@ -20,6 +20,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 INTERNAL_BASE_URL = "https://www.notion.so/api/v3/"
+REASONING_EFFORTS = ("none", "low", "medium", "high", "xhigh", "max")
 
 
 class NotionInternalClient:
@@ -252,6 +253,9 @@ class NotionInternalClient:
         block_id: str | None = None,
         thread_id: str | None = None,
         agent_name: str = "AI",
+        *,
+        model: str | None = None,
+        reasoning_effort: str | None = None,
     ) -> Iterator[dict[str, Any]]:
         """Run Notion AI and stream the response (ndjson).
 
@@ -260,6 +264,9 @@ class NotionInternalClient:
             block_id: Current page/block context for the AI.
             thread_id: Existing thread ID to continue, or None for new.
             agent_name: Display name for the AI agent.
+            model: Internal model code from ``get_available_models()``.
+            reasoning_effort: One of ``none``, ``low``, ``medium``, ``high``,
+                ``xhigh``, or ``max``.
 
         Yields:
             Parsed ndjson objects from the streaming response.
@@ -269,22 +276,36 @@ class NotionInternalClient:
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
         tid = thread_id or str(uuid.uuid4())
 
+        if reasoning_effort is not None and reasoning_effort not in REASONING_EFFORTS:
+            allowed = ", ".join(REASONING_EFFORTS)
+            raise ValueError(
+                f"Unsupported reasoning_effort {reasoning_effort!r}; "
+                f"expected one of: {allowed}"
+            )
+
+        config_value: dict[str, Any] = {
+            "type": "workflow",
+            "enableScriptAgent": True,
+            "enableAgentIntegrations": True,
+            "enableCustomAgents": True,
+            "enableAgentDiffs": True,
+            "useWebSearch": True,
+            "writerMode": False,
+            "isCustomAgent": False,
+            "isMobile": False,
+            "searchScopes": [{"type": "everything"}],
+        }
+        if model is not None:
+            config_value["model"] = model
+            config_value["modelFromUser"] = True
+        if reasoning_effort is not None:
+            config_value["reasoningEffort"] = reasoning_effort
+
         transcript: list[dict[str, Any]] = [
             {
                 "id": str(uuid.uuid4()),
                 "type": "config",
-                "value": {
-                    "type": "workflow",
-                    "enableScriptAgent": True,
-                    "enableAgentIntegrations": True,
-                    "enableCustomAgents": True,
-                    "enableAgentDiffs": True,
-                    "useWebSearch": True,
-                    "writerMode": False,
-                    "isCustomAgent": False,
-                    "isMobile": False,
-                    "searchScopes": [{"type": "everything"}],
-                },
+                "value": config_value,
             },
             {
                 "id": str(uuid.uuid4()),

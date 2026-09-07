@@ -14,3 +14,6 @@ src/*.egg-info/
 browser-state/
 .omc/
 docs/*-capture*.json
+.notion-session-*/
+.notion-context-runtime-*/
+.private-evidence-*/

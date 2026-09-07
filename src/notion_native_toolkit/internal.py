@@ -13,14 +13,20 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import httpx
+
+from notion_native_toolkit.ai_models import validate_explicit_selection
 
 logger = logging.getLogger(__name__)
 
 INTERNAL_BASE_URL = "https://www.notion.so/api/v3/"
-REASONING_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+
+
+class NotionAIStreamError(RuntimeError):
+    """A sanitized failure while reading a Notion AI NDJSON stream."""
 
 
 class NotionInternalClient:
@@ -76,7 +82,7 @@ class NotionInternalClient:
             try:
                 resp = self._session.post(endpoint, json=data or {})
             except httpx.HTTPError as exc:
-                logger.warning("Request failed: %s %s", endpoint, exc)
+                logger.warning("Request failed: endpoint=%s type=%s", endpoint, type(exc).__name__)
                 if attempt < retries:
                     time.sleep(backoffs[attempt])
                     continue
@@ -89,9 +95,7 @@ class NotionInternalClient:
                 continue
 
             if resp.status_code >= 400:
-                logger.warning(
-                    "HTTP %d on %s: %s", resp.status_code, endpoint, resp.text[:200]
-                )
+                logger.warning("HTTP failure: status=%d endpoint=%s", resp.status_code, endpoint)
                 return None
 
             return resp.json()  # type: ignore[no-any-return]
@@ -102,34 +106,58 @@ class NotionInternalClient:
         endpoint: str,
         data: dict[str, Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """POST and yield ndjson lines (for streaming endpoints like AI)."""
+        """POST and yield NDJSON lines, raising sanitized stream failures."""
         time.sleep(self.rate_limit)
         verify_ssl = not bool(os.getenv("NO_SSL_VERIFY"))
-        with httpx.Client(timeout=self.timeout, verify=verify_ssl) as client:
-            with client.stream(
-                "POST",
-                f"{INTERNAL_BASE_URL}{endpoint}",
-                json=data or {},
-                cookies={"token_v2": self.token_v2},
-                headers={
-                    "Content-Type": "application/json",
-                    "x-notion-active-user-header": self.user_id or "",
-                    "x-notion-space-id": self.space_id,
-                },
-            ) as resp:
+        try:
+            with (
+                httpx.Client(timeout=self.timeout, verify=verify_ssl) as client,
+                client.stream(
+                    "POST",
+                    f"{INTERNAL_BASE_URL}{endpoint}",
+                    json=data or {},
+                    cookies={"token_v2": self.token_v2},
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-notion-active-user-header": self.user_id or "",
+                        "x-notion-space-id": self.space_id,
+                    },
+                ) as resp,
+            ):
                 if resp.status_code >= 400:
-                    logger.warning("Stream HTTP %d on %s", resp.status_code, endpoint)
-                    return
+                    logger.warning("Notion AI stream HTTP failure: status=%d endpoint=%s", resp.status_code, endpoint)
+                    raise NotionAIStreamError(
+                        f"Notion AI stream request failed with HTTP {resp.status_code}."
+                    )
                 import json
 
+                received = False
                 for line in resp.iter_lines():
                     line = line.strip()
                     if not line:
                         continue
+                    received = True
                     try:
-                        yield json.loads(line)
-                    except Exception:
-                        logger.debug("Non-JSON stream line: %s", line[:100])
+                        parsed = json.loads(line)
+                    except (TypeError, ValueError):
+                        logger.warning("Notion AI stream returned malformed NDJSON: endpoint=%s", endpoint)
+                        raise NotionAIStreamError(
+                            "Notion AI stream returned malformed NDJSON."
+                        ) from None
+                    if not isinstance(parsed, dict):
+                        logger.warning("Notion AI stream returned a non-object NDJSON event: endpoint=%s", endpoint)
+                        raise NotionAIStreamError(
+                            "Notion AI stream returned a malformed NDJSON event."
+                        )
+                    yield parsed
+                if not received:
+                    raise NotionAIStreamError("Notion AI stream ended without NDJSON events.")
+        except httpx.TimeoutException:
+            logger.warning("Notion AI stream timed out: endpoint=%s", endpoint)
+            raise NotionAIStreamError("Notion AI stream timed out.") from None
+        except httpx.HTTPError as exc:
+            logger.warning("Notion AI stream transport failure: endpoint=%s type=%s", endpoint, type(exc).__name__)
+            raise NotionAIStreamError("Notion AI stream request failed before a response was received.") from None
 
     # --- Search ---
 
@@ -266,7 +294,8 @@ class NotionInternalClient:
             agent_name: Display name for the AI agent.
             model: Internal model code from ``get_available_models()``.
             reasoning_effort: One of ``none``, ``minimal``, ``low``, ``medium``,
-                ``high``, ``xhigh``, or ``max``.
+                ``high``, ``xhigh``, or ``max``. Requires an explicit ``model``
+                so the current inventory can validate the model-specific support.
 
         Yields:
             Parsed ndjson objects from the streaming response.
@@ -276,11 +305,11 @@ class NotionInternalClient:
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
         tid = thread_id or str(uuid.uuid4())
 
-        if reasoning_effort is not None and reasoning_effort not in REASONING_EFFORTS:
-            allowed = ", ".join(REASONING_EFFORTS)
-            raise ValueError(
-                f"Unsupported reasoning_effort {reasoning_effort!r}; "
-                f"expected one of: {allowed}"
+        if model is not None or reasoning_effort is not None:
+            validate_explicit_selection(
+                self.get_available_models(),
+                model=model,
+                reasoning_effort=reasoning_effort,
             )
 
         config_value: dict[str, Any] = {

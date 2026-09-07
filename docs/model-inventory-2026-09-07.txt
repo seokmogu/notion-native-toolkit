@@ -1,0 +1,37 @@
+Source: authenticated notion_ai_models read, 2026-09-07 KST.
+33 entries; 1 disabled. This is inventory evidence, not model inference/benchmark evidence.
+Missing scores are unknown, not zero. Refresh before use.
+
+- Grok 4.6 [xai/xai] group=intelligent code=soursop-shortcake speed=3 intelligence=5 cost=4 default_effort=high supported_efforts=low,medium,high,xhigh
+- GPT-5.6 Luna [openai/openai] group=fast code=olive-jellyroll speed=5 intelligence=3 cost=2 default_effort=medium supported_efforts=none,low,medium,high,xhigh,max
+- GPT-5.6 Terra [openai/openai] group=intelligent code=orchid-muffin speed=4 intelligence=4 cost=4 default_effort=medium supported_efforts=none,low,medium,high,xhigh,max
+- GPT-5.6 Sol [openai/openai] group=intelligent code=orange-mousse speed=3 intelligence=5 cost=5 default_effort=medium supported_efforts=none,low,medium,high,xhigh,max
+- GPT-6 Astra [openai/openai] group=intelligent code=orlando-quinn speed=? intelligence=? cost=? default_effort=medium supported_efforts=low,medium,high,xhigh,max
+- GPT-5.2 [openai/openai] group=fast code=oatmeal-cookie speed=4 intelligence=4 cost=3 default_effort=medium supported_efforts=medium,high
+- GPT-5.4 [openai/openai] group=fast code=oval-kumquat-medium speed=4 intelligence=5 cost=4 default_effort=medium supported_efforts=medium,high
+- GPT-5.5 [openai/openai] group=intelligent code=opal-quince-medium speed=4 intelligence=5 cost=5 default_effort=medium supported_efforts=medium,high
+- Gemini 3.5 Flash [gemini/gemini] group=fast code=vertex-gemini-3.5-flash speed=5 intelligence=3 cost=3 default_effort=low supported_efforts=low,medium,high
+- Gemini 3.6 Flash [gemini/gemini] group=fast code=vertex-gemini-3.6-flash speed=5 intelligence=3 cost=3 default_effort=medium supported_efforts=minimal,low,medium,high
+- Gemini 3.7 Flash [gemini/gemini] group=fast code=grapefruit-zeppole speed=5 intelligence=3 cost=3 default_effort=medium supported_efforts=low,medium,high
+- Sonnet 4.6 [anthropic/anthropic] group=fast code=almond-croissant-low speed=3 intelligence=5 cost=4 default_effort=low supported_efforts=low,medium,high,max
+- Sonnet 5 [anthropic/anthropic] group=intelligent code=angel-cake-high speed=3 intelligence=5 cost=3 default_effort=high supported_efforts=none,low,medium,high
+- Opus 4.6 [anthropic/anthropic] group=intelligent code=avocado-froyo-medium speed=2 intelligence=5 cost=5 default_effort=medium supported_efforts=medium
+- Opus 4.7 [anthropic/anthropic] group=intelligent code=apricot-sorbet-high speed=2 intelligence=5 cost=5 default_effort=high supported_efforts=high
+- Opus 4.8 [anthropic/anthropic] group=intelligent code=ambrosia-tart-high speed=2 intelligence=5 cost=5 default_effort=high supported_efforts=low,medium,high,max
+- Opus 5 [anthropic/anthropic] group=intelligent code=agave-flan speed=2 intelligence=5 cost=5 default_effort=medium supported_efforts=low,medium,high,max
+- GPT-5.4 Mini [openai/openai] group=fast code=oregon-grape-medium speed=5 intelligence=2 cost=2 default_effort=medium supported_efforts=medium
+- GPT-5.4 Nano [openai/openai] group=fast code=otaheite-apple-medium speed=5 intelligence=1 cost=1 default_effort=medium supported_efforts=medium
+- Kimi K2.6 [mystery/kimi] group=intelligent code=fireworks-kimi-k2.6 speed=5 intelligence=4 cost=2 default_effort=? supported_efforts=?
+- Kimi K2.7 Code [mystery/kimi] group=intelligent code=fireworks-kimi-k2.7 speed=5 intelligence=4 cost=2 default_effort=? supported_efforts=?
+- Kimi K3 [mystery/kimi] group=intelligent code=fireworks-kimi-k3 speed=3 intelligence=4 cost=5 default_effort=max supported_efforts=low,high,max
+- DeepSeek V4 Pro [mystery/deepseek] group=intelligent code=baseten-deepseek-v4-pro speed=3 intelligence=5 cost=4 default_effort=high supported_efforts=none,minimal,low,medium,high,max,xhigh
+- DeepSeek V4 Flash [mystery/deepseek] group=fast code=baseten-deepseek-v4-flash speed=5 intelligence=4 cost=1 default_effort=high supported_efforts=none,minimal,low,medium,high,xhigh
+- GLM 5.2 [mystery/glm] group=intelligent code=baseten-glm-5.2 speed=3 intelligence=5 cost=3 default_effort=high supported_efforts=none,high,max
+- Grok 4.3 [xai/xai] group=intelligent code=xigua-mochi-medium speed=3 intelligence=5 cost=4 default_effort=medium supported_efforts=low,medium,high
+- Grok 4.5 [xai/xai] group=intelligent code=strawberry-whoopiepie speed=3 intelligence=5 cost=4 default_effort=medium supported_efforts=low,medium,high
+- Grok Build 0.1 [xai/xai] group=intelligent code=xinomavro-cake speed=3 intelligence=5 cost=4 default_effort=? supported_efforts=?
+- Fable 5.1 [anthropic/anthropic] group=intelligent code=assam-chai speed=2 intelligence=5 cost=5 default_effort=high supported_efforts=low,medium,high,max (disabled)
+- Gemini 3.1 Pro [gemini/gemini] group=intelligent code=galette-medium-thinking speed=? intelligence=? cost=? default_effort=medium supported_efforts=low,medium
+- Haiku 4.5 [anthropic/anthropic] group=fast code=anthropic-haiku-4.5 speed=5 intelligence=2 cost=2 default_effort=? supported_efforts=?
+- Fable 5 [anthropic/anthropic] group=intelligent code=acai-budino-high speed=2 intelligence=5 cost=5 default_effort=high supported_efforts=low,medium,high,max
+- Gemini 3 Flash [gemini/gemini] group=fast code=gingerbread speed=5 intelligence=2 cost=2 default_effort=? supported_efforts=?

@@ -17,6 +17,7 @@ from .markdown import (
     markdown_to_notion_blocks,
     notion_blocks_to_markdown,
 )
+from .ntn import NotionCliClient
 from .profiles import (
     DEFAULT_KEYCHAIN_SERVICE,
     WorkspaceProfile,
@@ -26,7 +27,6 @@ from .profiles import (
     load_config,
     upsert_profile,
 )
-from .ntn import NotionCliClient
 from .repair import RepairOptions, parse_verify_command, run_repair
 from .toolkit import NotionToolkit
 
@@ -276,6 +276,8 @@ def cmd_markdown_from_page(args: argparse.Namespace) -> int:
 
 
 def cmd_page_create_from_markdown(args: argparse.Namespace) -> int:
+    if not args.yes:
+        raise ValueError("Refusing to create a page without explicit --yes")
     toolkit = NotionToolkit.from_profile(args.profile)
     markdown_path = Path(args.file)
     raw_content = markdown_path.read_text(encoding="utf-8")
@@ -336,6 +338,8 @@ def cmd_page_create_from_markdown(args: argparse.Namespace) -> int:
 
 
 def cmd_page_update_from_markdown(args: argparse.Namespace) -> int:
+    if not args.yes:
+        raise ValueError("Refusing to update a page without explicit --yes")
     toolkit = NotionToolkit.from_profile(args.profile)
     markdown_path = Path(args.file)
     raw_content = markdown_path.read_text(encoding="utf-8")
@@ -1157,6 +1161,11 @@ def build_parser() -> argparse.ArgumentParser:
     page_create.add_argument(
         "--mode", choices=["native", "blocks", "cli"], default="blocks"
     )
+    page_create.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required confirmation for creating a page",
+    )
     page_create.set_defaults(func=cmd_page_create_from_markdown)
 
     page_update = page_subparsers.add_parser("update-from-markdown")
@@ -1167,6 +1176,11 @@ def build_parser() -> argparse.ArgumentParser:
     page_update.add_argument("--drop-child-pages", action="store_true")
     page_update.add_argument(
         "--mode", choices=["native", "blocks", "cli"], default="blocks"
+    )
+    page_update.add_argument(
+        "--yes",
+        action="store_true",
+        help="Required confirmation for updating a page",
     )
     page_update.set_defaults(func=cmd_page_update_from_markdown)
 

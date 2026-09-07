@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from .browser_state import find_storage_state_cookie
 from .browser import NotionBrowserAutomation
+from .browser_state import find_storage_state_cookie
 from .client import NotionApiClient
 from .credentials import resolve_credential
 from .internal import NotionInternalClient
@@ -66,8 +66,9 @@ class NotionToolkit:
         """Get internal API client. Requires token_v2 and space_id in profile."""
         if self.internal is None:
             raise ValueError(
-                f"Profile '{self.profile.name}' does not have token_v2 or space_id configured. "
-                "Use 'notion-native profile set-internal <name> --token-v2 <token> --space-id <id>' "
-                "or 'notion-native browser sync-chrome-cookies --profile <name>' to set up."
+                f"Profile '{self.profile.name}' requires space_id plus token_v2 or "
+                "browser_state_path containing token_v2. Configure the approved profile "
+                "fields (space_id, token_v2, browser_state_path); see "
+                "'notion-native browser sync-chrome-cookies --help' for browser-state sync."
             )
         return self.internal

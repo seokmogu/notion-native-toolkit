@@ -655,13 +655,18 @@ def launch(
 
 
 def _arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the private synthetic local-context fixture")
+    parser = argparse.ArgumentParser(
+        description="Run the private read-only context broker and tunnel; fixture scope by default."
+    )
     parser.add_argument("--runtime-dir", required=True, metavar="ABS_PATH")
     parser.add_argument("--port", type=int, default=8001)
     parser.add_argument("--allowed-host", required=True, metavar="HOST")
     parser.add_argument("--encrypted-credentials", metavar="JSONFILE")
     parser.add_argument("--handoff-key", metavar="PRIVATE_PEM")
-    parser.add_argument("--real-context", action="store_true")
+    parser.add_argument(
+        "--real-context", action="store_true",
+        help="Use the fixed approved project and Codex instruction roots instead of synthetic fixtures.",
+    )
     return parser.parse_args(argv)
 
 

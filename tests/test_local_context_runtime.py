@@ -82,6 +82,15 @@ def test_broker_environment_carries_explicit_scope_mode(mode: str) -> None:
     assert 'scope_mode=os.environ["LOCAL_CONTEXT_SCOPE_MODE"]' in runtime._BROKER_PROGRAM
 
 
+def test_runtime_help_describes_default_and_real_scope(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        runtime._arguments(["--help"])
+    assert exc.value.code == 0
+    output = " ".join(capsys.readouterr().out.split())
+    assert "fixture scope by default" in output
+    assert "fixed approved project and Codex instruction roots" in output
+
+
 def test_runtime_directory_creation_does_not_overwrite_collision(
     tmp_path: Path, monkeypatch
 ) -> None:

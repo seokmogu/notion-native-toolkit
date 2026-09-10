@@ -117,6 +117,10 @@ notion-native browser login --profile worxphere --headed
 cat ~/.config/notion-native-toolkit/workspaces.json | grep space_id
 ```
 
+## 명시적인 AI 요청과 기능 확인
+
+`notion_ai_models`와 `notion_ai_ask`는 이 툴킷의 내부 MCP 기능이다. Hosted Notion MCP에 모델 선택 도구가 없다는 이유만으로 이 도구까지 미지원이라고 판단하지 않는다. 워크스페이스 정책이 허용하는 명시적 AI 요청에는 기존 인증을 재사용하고, 실제 모델 목록·지원 effort·응답을 순서대로 확인한다. 새 로그인·인증 경로 변경이나 페이지 쓰기는 별도 권한 범위다. [인증과 AI 범위](authentication.md#명시적으로-요청한-notion-ai)를 따른다.
+
 ## Claude Code 스킬 사용법
 
 이 저장소는 Claude Code 스킬 파일이나 설치기를 배포하지 않습니다. 아래 슬래시 커맨드는 사용자가 별도 스킬을 설치·구성한 환경의 예시이며, 패키지 설치만으로 동작하지 않습니다.
